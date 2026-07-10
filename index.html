@@ -2007,6 +2007,11 @@ function renderAnalise(){
           <div class="stat"><div class="label">Humor médio (0–100)</div><div class="value">${round1(STATE.vas.reduce((a,r)=>a+r.humor,0)/STATE.vas.length)}</div></div>
           <div class="stat"><div class="label">Ansiedade média (0–100)</div><div class="value">${round1(STATE.vas.reduce((a,r)=>a+r.ansiedade,0)/STATE.vas.length)}</div></div>
         </div>
+        <div class="legend-row">
+          <span><span class="dot" style="background:#3F6B4F;"></span>Humor</span>
+          <span><span class="dot" style="background:#7A5271;"></span>Ansiedade</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-vas" role="img" aria-label="Gráfico de linha mostrando os check-ins VAS de humor e ansiedade momentâneos, de 0 a 100, ao longo do tempo"></canvas></div>
       ` : '<div class="empty">Nenhum check-in VAS ainda — disponível na aba Diário.</div>'}
     </div>
 
@@ -2031,6 +2036,14 @@ function renderAnalise(){
       {label:'PHQ-9', data:allTestDates.map(d=>phqMap[d] ?? null), borderColor:'#B8843C', backgroundColor:'#B8843C', spanGaps:true},
       {label:'GAD-7', data:allTestDates.map(d=>gadMap[d] ?? null), borderColor:'#2E7385', backgroundColor:'#2E7385', spanGaps:true}
     ]);
+  }
+
+  if(STATE.vas.length){
+    const vasOrdenado = [...STATE.vas].sort((a,b)=>a.ts.localeCompare(b.ts));
+    drawChart('chart-vas', 'line', vasOrdenado.map(r=>fmtDate(r.ts.slice(0,10))+' '+fmtHora(r.ts)), [
+      {label:'Humor', data:vasOrdenado.map(r=>r.humor), borderColor:'#3F6B4F', backgroundColor:'#3F6B4F', tension:0.3},
+      {label:'Ansiedade', data:vasOrdenado.map(r=>r.ansiedade), borderColor:'#7A5271', backgroundColor:'#7A5271', tension:0.3}
+    ], {min:0, max:100});
   }
 
   document.getElementById('btn-relatorio').addEventListener('click', ()=>gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr));
