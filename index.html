@@ -687,12 +687,22 @@ async function boot(session){
   }
 }
 
+/* URL "limpa", sem hash nem query — usada como destino de redirect do login.
+   Importante: NUNCA usar window.location.href aqui, porque depois de um login
+   o Supabase pode deixar um "#" residual na URL; se esse "#" for reaproveitado
+   como redirectTo, o próximo login volta com "##access_token=..." (hash duplicado)
+   e o supabase-js não consegue mais interpretar o token — o app fica preso na
+   tela de login mesmo com o token visível na barra de endereço. */
+function cleanRedirectUrl(){
+  return window.location.origin + window.location.pathname;
+}
+
 document.getElementById('auth-google').addEventListener('click', async ()=>{
   const statusEl = document.getElementById('auth-status');
   statusEl.textContent = 'Abrindo login do Google...';
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.href }
+    options: { redirectTo: cleanRedirectUrl() }
   });
   if(error) statusEl.textContent = 'Não foi possível iniciar o login: ' + error.message;
 });
@@ -704,7 +714,7 @@ document.getElementById('auth-send').addEventListener('click', async ()=>{
   statusEl.textContent = 'Enviando link...';
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.href }
+    options: { emailRedirectTo: cleanRedirectUrl() }
   });
   statusEl.textContent = error
     ? 'Não foi possível enviar: ' + error.message
@@ -713,8 +723,20 @@ document.getElementById('auth-send').addEventListener('click', async ()=>{
 
 document.getElementById('btn-logout').addEventListener('click', async ()=>{
   await sb.auth.signOut();
-  location.reload();
+  // Navega para a URL limpa em vez de apenas recarregar, para garantir que
+  // nenhum "#" residual do OAuth fique salvo na barra de endereço.
+  window.location.href = cleanRedirectUrl();
 });
+
+/* Rede de segurança: se por algum motivo a URL ainda chegar com hash duplicado
+   (##access_token=...), normaliza para um único "#" antes do supabase-js
+   tentar interpretar o token, evitando que o login fique travado. */
+(function sanitizeDoubleHash(){
+  if(location.hash.startsWith('##')){
+    const fixed = window.location.href.replace('/##', '/#');
+    history.replaceState(null, '', fixed);
+  }
+})();
 
 sb.auth.onAuthStateChange((_event, session)=>{ boot(session); });
 sb.auth.getSession().then(({data:{session}})=>boot(session));
