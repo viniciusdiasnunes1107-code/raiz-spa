@@ -662,7 +662,7 @@ async function instalarApp(){
   document.getElementById('btn-instalar')?.setAttribute('hidden', '');
 }
 
-window.STATE = { anamnese:null, anamneseHistory:[], diario:{}, phq9:[], gad7:[], who5:[], isi:[], cuditr:[], fibser:[], notifications:[] };
+window.STATE = { anamnese:null, anamneseHistory:[], diario:{}, phq9:[], gad7:[], who5:[], isi:[], cuditr:[], fibser:[], notifications:[], vas:[] };
 let currentUser = null;
 
 /* ---------- storage helpers (Supabase) ---------- */
@@ -1139,6 +1139,23 @@ function renderDiario(){
     </div>
 
     <div class="card">
+      <h3>Check-in rápido (VAS)</h3>
+      <p class="note" style="margin:-6px 0 12px;">Escala Visual Analógica — use quantas vezes quiser ao longo do dia, sempre que quiser registrar como está se sentindo agora (não substitui o registro estruturado acima, é um complemento momentâneo).</p>
+      <div class="grid2">
+        <div class="field">
+          <label>Humor agora <span style="color:var(--ink-faint);font-weight:400;">(0 péssimo — 100 ótimo)</span></label>
+          <div class="slider-row"><input id="vas-humor" type="range" min="0" max="100" step="1" value="50"><span class="slider-out" id="vas-humor-out">50</span></div>
+        </div>
+        <div class="field">
+          <label>Ansiedade agora <span style="color:var(--ink-faint);font-weight:400;">(0 nenhuma — 100 extrema)</span></label>
+          <div class="slider-row"><input id="vas-ansiedade" type="range" min="0" max="100" step="1" value="50"><span class="slider-out" id="vas-ansiedade-out">50</span></div>
+        </div>
+      </div>
+      <button class="btn primary" id="btn-vas-registrar" style="margin-top:6px;">Registrar agora</button>
+      <div id="vas-historico" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="card">
       <h3>Efeitos colaterais percebidos</h3>
       <p class="note" style="margin:-6px 0 12px;">Marque a intensidade de cada um — deixe em "Ausente" se não ocorreu.</p>
       <div id="d-efeitos" class="grid2">
@@ -1179,7 +1196,7 @@ function renderDiario(){
     </div>
   `;
 
-  ['d-humor-manha','d-humor-noite','d-ansiedade-manha','d-ansiedade-noite','d-thc-alivio','d-cbd-alivio'].forEach(id=>{
+  ['d-humor-manha','d-humor-noite','d-ansiedade-manha','d-ansiedade-noite','d-thc-alivio','d-cbd-alivio','vas-humor','vas-ansiedade'].forEach(id=>{
     const input = document.getElementById(id);
     input.addEventListener('input', ()=>document.getElementById(id+'-out').textContent = input.value);
   });
@@ -1189,9 +1206,45 @@ function renderDiario(){
 
   document.getElementById('btn-save-diario').addEventListener('click', saveDiarioForm);
   document.getElementById('btn-del-diario').addEventListener('click', deleteDiarioForm);
+  document.getElementById('btn-vas-registrar').addEventListener('click', registrarVasCheckin);
 
   loadDiarioIntoForm(dateInput.value);
   renderDiarioLista();
+  renderVasHistorico();
+}
+
+function fmtHora(iso){
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+async function registrarVasCheckin(){
+  const humor = Number(document.getElementById('vas-humor').value);
+  const ansiedade = Number(document.getElementById('vas-ansiedade').value);
+  const registro = { ts: new Date().toISOString(), humor, ansiedade };
+  STATE.vas.push(registro);
+  await saveJSON('vas-history', STATE.vas);
+  toast('Check-in registrado');
+  renderVasHistorico();
+}
+
+function renderVasHistorico(){
+  const el = document.getElementById('vas-historico');
+  if(!el) return;
+  const recentes = [...STATE.vas].sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,5);
+  if(!recentes.length){
+    el.innerHTML = '<p class="note">Nenhum check-in ainda hoje.</p>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="table-scroll">
+    <table class="hist">
+      <tbody>
+        ${recentes.map(r=>`<tr><td>${fmtDate(r.ts.slice(0,10))} ${fmtHora(r.ts)}</td><td>humor ${r.humor}</td><td>ansiedade ${r.ansiedade}</td></tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
 }
 
 function loadDiarioIntoForm(date){
@@ -1419,7 +1472,7 @@ const TEST_DEFS = {
     band(score){
       if(score<=4) return {label:'Mínimo', cls:'sev-0'};
       if(score<=9) return {label:'Leve', cls:'sev-1'};
-      if(score<=14) return {label:'Moderado', cls:'sev-3'};
+      if(score<=14) return {label:'Moderado', cls:'sev-2'};
       return {label:'Grave', cls:'sev-4'};
     }
   },
@@ -1443,7 +1496,7 @@ const TEST_DEFS = {
       if(score<=75) return {label:'Bem-estar moderado', cls:'sev-1'};
       return {label:'Bem-estar bom', cls:'sev-0'};
     },
-    note: 'Pontuação ≤ 50% costuma indicar necessidade de conversar com um profissional sobre o humor.'
+    note: 'Apenas o corte ≤ 50% é o ponto de referência oficial da OMS (indicando necessidade de rastreio adicional para depressão). As demais subfaixas (≤28, ≤75) são uma divisão interna deste app para facilitar a leitura, sem validação publicada própria.'
   },
   isi: {
     label: 'ISI',
@@ -1946,6 +1999,17 @@ function renderAnalise(){
       </div>
     </div>
 
+    <div class="card">
+      <h3>Check-ins VAS (momentâneos)</h3>
+      ${STATE.vas.length ? `
+        <p class="section-desc" style="margin-bottom:12px;">${STATE.vas.length} check-in(s) registrado(s) no total · complementam os registros estruturados de manhã/noite com observações pontuais ao longo do dia.</p>
+        <div class="stat-grid">
+          <div class="stat"><div class="label">Humor médio (0–100)</div><div class="value">${round1(STATE.vas.reduce((a,r)=>a+r.humor,0)/STATE.vas.length)}</div></div>
+          <div class="stat"><div class="label">Ansiedade média (0–100)</div><div class="value">${round1(STATE.vas.reduce((a,r)=>a+r.ansiedade,0)/STATE.vas.length)}</div></div>
+        </div>
+      ` : '<div class="empty">Nenhum check-in VAS ainda — disponível na aba Diário.</div>'}
+    </div>
+
     <button class="btn primary" id="btn-relatorio">Baixar relatório para consulta</button>
   `;
 
@@ -2021,6 +2085,13 @@ function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio,
   linhas.push('CBD x humor: ' + corrLabel(pearson(cbdArr, humorArr)));
   linhas.push('CBD x ansiedade: ' + corrLabel(pearson(cbdArr, ansArr)));
   linhas.push('');
+  if(STATE.vas.length){
+    linhas.push('--- CHECK-INS VAS MOMENTÂNEOS ---');
+    linhas.push('Total de check-ins: ' + STATE.vas.length);
+    linhas.push('Humor médio (0-100): ' + round1(STATE.vas.reduce((a,r)=>a+r.humor,0)/STATE.vas.length));
+    linhas.push('Ansiedade média (0-100): ' + round1(STATE.vas.reduce((a,r)=>a+r.ansiedade,0)/STATE.vas.length));
+    linhas.push('');
+  }
   linhas.push('Este relatório foi gerado a partir de autorregistros e autotestes de rastreio.');
   linhas.push('Não constitui diagnóstico nem recomendação de ajuste de dose — destina-se a apoiar a conversa com o profissional responsável pelo tratamento.');
 
@@ -2051,6 +2122,7 @@ async function init(){
   STATE.cuditr = dataMap['cuditr-history'] ?? [];
   STATE.fibser = dataMap['fibser-history'] ?? [];
   STATE.notifications = dataMap['notifications'] ?? [];
+  STATE.vas = dataMap['vas-history'] ?? [];
 
   renderInicio();
   renderAnamnese();
