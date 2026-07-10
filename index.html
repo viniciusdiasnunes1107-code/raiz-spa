@@ -2044,6 +2044,113 @@ function thcAnsiedadeAlerta(r, thcMedio){
     </div>`;
 }
 
+/* ============================================================
+   Índice de Mudança Confiável (Reliable Change Index — RCI)
+   Jacobson & Truax, 1991.
+
+   Por quê RCI e não ICC calculado a partir do próprio histórico:
+   confiabilidade teste-reteste (seja via ICC ou r de Pearson) exige
+   múltiplos sujeitos medidos duas vezes em condição clínica ESTÁVEL,
+   pra isolar erro de medição de mudança real. Aqui há um único sujeito
+   sendo acompanhado justamente para captar mudança real ao longo do
+   tratamento — as duas fontes de variação ficariam confundidas. Por
+   isso as constantes de confiabilidade (r) e desvio-padrão (SD) usadas
+   abaixo vêm de estudos de validação publicados, não dos seus dados.
+
+   Fórmulas:
+     SEM   = SD * sqrt(1 - r)          (erro padrão de medição)
+     Sdiff = SEM * sqrt(2)             (erro padrão da diferença)
+     RCI   = (escore2 - escore1) / Sdiff
+   |RCI| >= 1.96  →  mudança que excede o erro de medição esperado
+                     com 95% de confiança (mudança "confiável").
+
+   Os valores de SD marcados como "aproximado" foram estimados a partir
+   de amostras clínicas/psiquiátricas descritas na literatura de
+   validação — não são o desvio-padrão exato de um único estudo-fonte,
+   e podem ser recalibrados se surgir referência melhor.
+   ============================================================ */
+const TEST_RELIABILITY = {
+  phq9: {
+    r: 0.84, sd: 6.1,
+    fonte: 'Kroenke, Spitzer & Williams (2001); meta-análise de generalização de confiabilidade reporta r agrupado = 0,82 (IC95% 0,74–0,90) — Discover Mental Health, 2025.'
+  },
+  gad7: {
+    r: 0.83, sd: 5.5,
+    fonte: 'Spitzer, Kroenke, Williams & Löwe (2006), ICC = 0,83. DP aproximado de amostras clínicas.'
+  },
+  who5: {
+    r: 0.85, sd: 20,
+    fonte: 'Topp, Østergaard, Søndergaard & Bech (2015); Schougaard et al. (2018, 2022), ICC entre 0,81 e 0,87 em amostras dinamarquesas. DP aproximado (escala 0–100).'
+  },
+  isi: {
+    r: 0.80, sd: 6.4,
+    fonte: 'Bastien, Vallières & Morin (2001); Morin, Belleville, Bélanger & Ivers (2011). DP aproximado.'
+  },
+  cuditr: {
+    r: 0.87, sd: 6.8,
+    fonte: 'Adamson et al. (2010), r = 0,871. DP aproximado de amostras clínicas de uso de cannabis.'
+  }
+  // fibser: propositalmente ausente — ver nota em rciIndisponivelFibser()
+};
+
+function computeRCI(testId, score1, score2){
+  const ref = TEST_RELIABILITY[testId];
+  if(!ref) return null;
+  const sem = ref.sd * Math.sqrt(1 - ref.r);
+  const sDiff = sem * Math.sqrt(2);
+  if(sDiff === 0) return null;
+  const rci = (score2 - score1) / sDiff;
+  return {
+    rci: Math.round(rci*100)/100,
+    sDiff: Math.round(sDiff*100)/100,
+    delta: score2 - score1,
+    confiavel: Math.abs(rci) >= 1.96
+  };
+}
+
+function rciInterpretacao(testId, r){
+  // Para a maioria dos testes, escore MAIOR = pior (exceto WHO-5, onde MAIOR = melhor)
+  const invertido = (testId === 'who5');
+  if(!r.confiavel) return { label: 'Dentro da margem de erro esperada', cls: 'sev-0' };
+  const piorou = invertido ? r.delta < 0 : r.delta > 0;
+  return piorou
+    ? { label: 'Mudança confiável — piora', cls: 'sev-3' }
+    : { label: 'Mudança confiável — melhora', cls: 'sev-0' };
+}
+
+function renderRciSecaoTeste(testId, historico){
+  const def = TEST_DEFS[testId];
+  if(historico.length < 2){
+    return `<p class="note">Precisa de pelo menos 2 aplicações de ${def.label} para calcular mudança confiável.</p>`;
+  }
+  if(testId === 'fibser'){
+    return `<p class="note">O FIBSER não entra nesse cálculo: estudos de validação encontraram confiabilidade teste-reteste baixa e instável para ele (ICC entre 0,34 e 0,46 — Frontiers in Psychiatry, 2025), abaixo do necessário para estimar erro de medição com confiança. Os escores continuam registrados no gráfico acima como tendência descritiva, sem o selo de "mudança confiável".</p>`;
+  }
+  const ref = TEST_RELIABILITY[testId];
+  const linhas = [];
+  for(let i=1; i<historico.length; i++){
+    const a = historico[i-1], b = historico[i];
+    const r = computeRCI(testId, a.score, b.score);
+    if(!r) continue;
+    const interp = rciInterpretacao(testId, r);
+    linhas.push(`<tr>
+      <td>${fmtDate(a.date)} → ${fmtDate(b.date)}</td>
+      <td>${a.score} → ${b.score} (Δ${r.delta>0?'+':''}${r.delta})</td>
+      <td>RCI = ${r.rci}</td>
+      <td><span class="severity ${interp.cls}">${interp.label}</span></td>
+    </tr>`);
+  }
+  return `
+    <div class="table-scroll">
+      <table class="hist">
+        <thead><tr><th>Aplicações</th><th>Escores</th><th>RCI</th><th>Interpretação</th></tr></thead>
+        <tbody>${linhas.join('')}</tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:8px;">Confiabilidade teste-reteste usada: r = ${ref.r} · Fonte: ${ref.fonte}</p>
+  `;
+}
+
 function renderAnalise(){
   const el = document.getElementById('view-analise');
   const dates = Object.keys(STATE.diario).sort();
@@ -2119,6 +2226,21 @@ function renderAnalise(){
         </div>
         <div class="chart-wrap"><canvas id="chart-testes" role="img" aria-label="Gráfico de linha mostrando a evolução das pontuações de PHQ-9 e GAD-7 ao longo do tempo"></canvas></div>
       ` : '<div class="empty">Nenhum autoteste aplicado ainda — vá até a aba Testes.</div>'}
+    </div>
+
+    <div class="card">
+      <h3>Mudança confiável entre aplicações (RCI)</h3>
+      <p class="note" style="margin-bottom:10px;">Compara cada par de aplicações consecutivas usando o Índice de Mudança Confiável (Jacobson &amp; Truax, 1991): a diferença de escore é medida contra o erro de medição esperado do instrumento (a partir de confiabilidade teste-reteste publicada na literatura, não dos seus próprios dados — ver justificativa técnica abaixo). |RCI| ≥ 1,96 indica mudança que provavelmente é real, não apenas oscilação do instrumento.</p>
+      ${TEST_ORDER.map(id => STATE[id].length ? `
+        <div style="margin-top:14px;">
+          <h4 style="margin:0 0 6px;color:var(--verde-escuro,#3F6B4F);">${TEST_DEFS[id].label}</h4>
+          ${renderRciSecaoTeste(id, STATE[id])}
+        </div>
+      ` : '').join('')}
+      <details style="margin-top:12px;">
+        <summary class="note" style="cursor:pointer;">Por que não é um ICC calculado com meus próprios dados?</summary>
+        <p class="note" style="margin-top:8px;">Confiabilidade teste-reteste (ICC ou r) precisa de múltiplos sujeitos avaliados duas vezes em estado clínico estável, pra separar erro de medição de mudança real. Aqui há uma pessoa só, sendo acompanhada exatamente para captar mudança ao longo do tratamento — um ICC calculado sobre essa série misturaria as duas coisas e não teria como ser interpretado como confiabilidade. Por isso o app usa a confiabilidade já publicada na literatura de validação de cada teste para estimar o erro de medição esperado (RCI), que é o método padrão pra monitoramento clínico individual.</p>
+      </details>
     </div>
 
     <div class="card">
