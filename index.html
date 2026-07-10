@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Raiz — diário de acompanhamento</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3F6B4F">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -586,6 +590,7 @@
         <p class="sub">diário de acompanhamento — óleos, humor e tratamento</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="bell-btn" id="btn-instalar" hidden onclick="instalarApp()">Instalar app</button>
         <button class="bell-btn" id="btn-notif" aria-label="Notificações de autotestes">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           Notificações
@@ -626,6 +631,36 @@ const SUPABASE_URL = 'https://vlwrpkqztjjmjixiydil.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_1n6Lx4ar1C0Qq7lwTD8vUg_aEl8YpGs';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------- PWA: registro do service worker (offline + auto-update) ---------- */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // Checa por versão nova a cada hora enquanto o app está aberto
+    setInterval(() => reg.update(), 60 * 60 * 1000);
+    reg.addEventListener('updatefound', () => {
+      const novo = reg.installing;
+      if (!novo) return;
+      novo.addEventListener('statechange', () => {
+        if (novo.state === 'activated') window.location.reload();
+      });
+    });
+  }).catch(e => console.error('sw register error', e));
+}
+
+/* ---------- PWA: prompt de instalação ---------- */
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('btn-instalar')?.removeAttribute('hidden');
+});
+async function instalarApp(){
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('btn-instalar')?.setAttribute('hidden', '');
+}
 
 window.STATE = { anamnese:null, anamneseHistory:[], diario:{}, phq9:[], gad7:[], who5:[], isi:[], cuditr:[], fibser:[], notifications:[] };
 let currentUser = null;
@@ -675,6 +710,9 @@ async function boot(session){
     currentUser = session.user;
     gate.style.display = 'none';
     app.style.display = 'block';
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
     if(!appInitialized){
       appInitialized = true;
       await init();
@@ -1662,7 +1700,20 @@ async function refreshNotifications(){
     }
   });
   if(changed) await saveJSON('notifications', STATE.notifications);
-  return STATE.notifications.filter(n=>n.status==='unread');
+  const unread = STATE.notifications.filter(n=>n.status==='unread');
+  notificarPendencias(unread);
+  return unread;
+}
+
+/* ---------- PWA: notificação nativa do navegador (1x por dia) ---------- */
+function notificarPendencias(unread){
+  if (!unread.length || typeof Notification === 'undefined') return;
+  const chave = `raiz-notificado-${todayISO()}`;
+  if (localStorage.getItem(chave)) return; // já notificou hoje
+  if (Notification.permission === 'granted') {
+    new Notification('Raiz', { body: `Você tem ${unread.length} teste(s) pendente(s) hoje 🌱` });
+    localStorage.setItem(chave, '1');
+  }
 }
 
 async function markNotificationsDone(testId){
