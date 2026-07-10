@@ -1678,6 +1678,61 @@ const TEST_INTERVALS = { phq9:14, gad7:14, who5:7, isi:14, cuditr:30, fibser:14 
 let currentTest = null;
 const testAnswers = {};
 
+/* ============================================================
+   Checkpoint de Preparação — Módulo 4 (Controle de Condições de
+   Aplicação). Testes psicométricos pressupõem administração
+   padronizada e livre de distrações para que a variância entre
+   aplicações reflita mudança real, e não ruído do contexto
+   (ambiente, pressa, atenção dividida). Isso é particularmente
+   relevante aqui porque a leitura de RCI (ver Análise) assume que
+   o erro de medição segue o mesmo padrão da literatura de
+   validação — condições muito instáveis de uma aplicação pra
+   outra introduzem uma fonte extra de variação que a fórmula do
+   RCI não tem como distinguir de mudança clínica real.
+   ============================================================ */
+function abrirChecklistPreparacao(testId){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="prep-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="prep-close" aria-label="Fechar">✕</button>
+        <h3>Antes de começar: ${TEST_DEFS[testId].label}</h3>
+        <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 14px;">
+          Aplicar o teste em condições parecidas de uma vez pra outra ajuda a garantir que a diferença de escore entre duas aplicações reflita mudança real, e não só o contexto em que você respondeu.
+        </p>
+        <div class="field chk" style="margin-bottom:10px;">
+          <label style="display:flex;gap:8px;align-items:flex-start;margin:0;">
+            <input type="checkbox" id="prep-chk-local" style="width:auto;margin-top:3px;">
+            <span>Estou em um lugar tranquilo, sem estar no meio de outra tarefa ou conversa.</span>
+          </label>
+        </div>
+        <div class="field chk" style="margin-bottom:14px;">
+          <label style="display:flex;gap:8px;align-items:flex-start;margin:0;">
+            <input type="checkbox" id="prep-chk-atencao" style="width:auto;margin-top:3px;">
+            <span>Tenho alguns minutos livres pra responder com atenção, sem pressa.</span>
+          </label>
+        </div>
+        <p class="note" style="margin-bottom:16px;">Se preencher distraído(a), com pressa ou em ambientes muito diferentes de uma aplicação pra outra, a diferença de escore pode refletir essas condições — não mudança clínica — e a leitura de "mudança confiável" (RCI) na Análise perde sentido.</p>
+        <button class="btn primary" id="prep-continuar" disabled>Começar o teste</button>
+      </div>
+    </div>
+  `;
+  const chk1 = document.getElementById('prep-chk-local');
+  const chk2 = document.getElementById('prep-chk-atencao');
+  const btn = document.getElementById('prep-continuar');
+  const atualizarBotao = () => { btn.disabled = !(chk1.checked && chk2.checked); };
+  chk1.addEventListener('change', atualizarBotao);
+  chk2.addEventListener('change', atualizarBotao);
+  btn.addEventListener('click', ()=>{
+    closeModal();
+    currentTest = testId;
+    renderTestForm();
+    document.getElementById('teste-conteudo').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  document.getElementById('prep-close').addEventListener('click', closeModal);
+  document.getElementById('prep-overlay').addEventListener('click', (ev)=>{ if(ev.target.id==='prep-overlay') closeModal(); });
+}
+
 function renderTestes(){
   const el = document.getElementById('view-testes');
   el.innerHTML = `
@@ -1686,17 +1741,15 @@ function renderTestes(){
     <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
       ${TEST_ORDER.map(id=>`<button class="btn" id="btn-tab-${id}">${TEST_DEFS[id].label}</button>`).join('')}
     </div>
-    <div id="teste-conteudo"></div>
+    <div id="teste-conteudo"><div class="empty">Escolha um autoteste acima para começar.</div></div>
     <div class="card">
       <h3>Histórico</h3>
       <div id="teste-historico"></div>
     </div>
   `;
   TEST_ORDER.forEach(id=>{
-    document.getElementById('btn-tab-'+id).addEventListener('click', ()=>{ currentTest=id; renderTestForm(); });
+    document.getElementById('btn-tab-'+id).addEventListener('click', ()=>{ abrirChecklistPreparacao(id); });
   });
-  if(!currentTest) currentTest = 'phq9';
-  renderTestForm();
   renderTestHistorico();
 }
 
@@ -1949,8 +2002,7 @@ async function showDuePopup(unreadList){
       updateNotifBadge();
       closeModal();
       switchToView('testes');
-      currentTest = testId;
-      renderTestForm();
+      abrirChecklistPreparacao(testId);
     });
   });
 }
