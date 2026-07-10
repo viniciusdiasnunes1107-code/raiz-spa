@@ -908,7 +908,29 @@ function renderAnamnese(){
         <div class="field"><label>Dose habitual</label><input id="a-antidep-dose" type="text" placeholder="ex.: 10 mg" value=""></div>
         <div class="field"><label>Horário habitual</label><input id="a-antidep-horario" type="time" value=""></div>
       </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Classe farmacológica do antidepressivo</label>
+          <select id="a-antidep-classe">
+            <option value="">— não sei / não informado —</option>
+            <option value="ISRS">ISRS (ex.: sertralina, escitalopram, fluoxetina)</option>
+            <option value="ISRSN">ISRSN (ex.: venlafaxina, duloxetina)</option>
+            <option value="ADT">Tricíclico — ADT (ex.: amitriptilina, clomipramina)</option>
+            <option value="IMAO">IMAO</option>
+            <option value="Outro">Outro / atípico (ex.: bupropiona, mirtazapina)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Uso concomitante de antipsicótico</label>
+          <select id="a-antips-classe">
+            <option value="">Nenhum</option>
+            <option value="Atípico">Atípico (ex.: quetiapina, risperidona)</option>
+            <option value="Típico">Típico (ex.: haloperidol)</option>
+          </select>
+        </div>
+      </div>
       <div class="field"><label>Há quanto tempo usa e outros medicamentos em uso</label><textarea id="a-antidep-obs" placeholder="tempo de uso, outros medicamentos, efeitos colaterais já notados..."></textarea></div>
+      <p class="note" style="margin-top:8px;">Essas classificações alimentam os alertas automáticos de possível interação entre os óleos e o tratamento medicamentoso, na aba Diário.</p>
     </div>
 
     <div class="card">
@@ -946,6 +968,8 @@ function renderAnamnese(){
       antidepNome: document.getElementById('a-antidep-nome').value.trim(),
       antidepDose: document.getElementById('a-antidep-dose').value.trim(),
       antidepHorario: document.getElementById('a-antidep-horario').value,
+      antidepClasse: document.getElementById('a-antidep-classe').value,
+      antipsClasse: document.getElementById('a-antips-classe').value,
       antidepObs: document.getElementById('a-antidep-obs').value.trim(),
       thcInfo: document.getElementById('a-thc-info').value.trim(),
       cbdInfo: document.getElementById('a-cbd-info').value.trim(),
@@ -1016,9 +1040,75 @@ function openAnamneseSnapshotModal(entry){
 /* ============================================================
    DIÁRIO
    ============================================================ */
-const SIDE_EFFECTS = ['Boca seca','Sonolência','Tontura','Taquicardia','Ansiedade aumentada','Náusea','Alteração de apetite','Dor de cabeça'];
+const SIDE_EFFECTS = ['Boca seca','Sonolência','Tontura','Taquicardia','Ansiedade aumentada','Náusea','Alteração de apetite','Dor de cabeça','Diarreia','Vômito','Fadiga extrema','Sudorese (diaforese)','Tremores','Agitação psicomotora','Hipotensão ortostática'];
 const MOTIVO_OPTS = ['','Dor','Ansiedade','Insônia','Rotina / manutenção','Outro'];
 const INTENSIDADE_OPTS = ['Ausente','Leve','Moderado','Intenso'];
+
+/* ============================================================
+   MOTOR DE ALERTAS DE INTERAÇÃO (óleos x medicação psiquiátrica)
+   Baseado em farmacocinética conhecida (inibição de CYP450 pelo
+   CBD, risco de síndrome serotoninérgica e efeitos cardiovasculares
+   do THC). São alertas EDUCATIVOS baseados em autorregistro — nunca
+   diagnóstico nem recomendação de ajuste de dose.
+   ============================================================ */
+function efeitoIntensidade(entry, nome){
+  const f = (entry.efeitos||[]).find(x=>x.nome===nome);
+  return f ? f.intensidade : 0; // 0 ausente · 1 leve · 2 moderado · 3 intenso
+}
+
+function checarInteracoes(entry, anamneseData){
+  const alerts = [];
+  const a = anamneseData || {};
+  const classe = a.antidepClasse || '';
+  const antipsClasse = a.antipsClasse || '';
+  const usaCBD = (entry.cbdDose ?? 0) > 0;
+  const usaTHC = (entry.thcDose ?? 0) > 0;
+
+  const diarreia = efeitoIntensidade(entry, 'Diarreia');
+  const vomito = efeitoIntensidade(entry, 'Vômito');
+  const fadiga = efeitoIntensidade(entry, 'Fadiga extrema');
+  const tontura = efeitoIntensidade(entry, 'Tontura');
+  const agitacao = efeitoIntensidade(entry, 'Agitação psicomotora');
+  const sudorese = efeitoIntensidade(entry, 'Sudorese (diaforese)');
+  const tremores = efeitoIntensidade(entry, 'Tremores');
+  const taquicardia = efeitoIntensidade(entry, 'Taquicardia');
+  const hipotensao = efeitoIntensidade(entry, 'Hipotensão ortostática');
+
+  // 1) CBD + ISRS — inibição de CYP3A4/CYP2C19/CYP2C9 pode elevar o nível do antidepressivo
+  if(usaCBD && classe === 'ISRS' && (diarreia>=2 || vomito>=2 || fadiga>=2 || tontura>=2)){
+    alerts.push({ nivel:'atencao', titulo:'CBD + ISRS: possível acúmulo do antidepressivo',
+      texto:'O CBD inibe enzimas do citocromo P450 (CYP3A4, CYP2C19, CYP2C9) usadas para metabolizar ISRS como a sertralina. Isso pode elevar a concentração do antidepressivo no sangue. Os sintomas registrados hoje (diarreia, vômito, fadiga extrema ou tontura em intensidade moderada/intensa) são compatíveis com esse acúmulo. Vale reportar ao seu prescritor, principalmente se persistirem.' });
+  }
+
+  // 2) Possível Síndrome Serotoninérgica — combinação de sinais precoces
+  const sinaisSerotoninergicos = [agitacao, sudorese, tremores, taquicardia].filter(v=>v>=2).length;
+  if((usaTHC || usaCBD) && ['ISRS','ISRSN','IMAO'].includes(classe) && sinaisSerotoninergicos>=2){
+    alerts.push({ nivel:'urgente', titulo:'Sinais compatíveis com Síndrome Serotoninérgica — procure atendimento agora',
+      texto:'Você registrou hoje pelo menos dois destes sinais em intensidade moderada/intensa: agitação psicomotora, sudorese, tremores ou taquicardia, em uso de óleo canabinoide junto com antidepressivo serotoninérgico. Essa combinação pode indicar Síndrome Serotoninérgica, uma emergência médica. Procure um pronto-socorro ou contate seu médico agora — não espere a próxima consulta.' });
+  }
+
+  // 3) THC + tricíclico ou antipsicótico — risco cardiovascular
+  if(usaTHC && (classe === 'ADT' || antipsClasse) && (taquicardia>=2 || hipotensao>=2)){
+    alerts.push({ nivel:'atencao', titulo:'THC + tricíclico/antipsicótico: atenção cardiovascular',
+      texto:'O THC aumenta a atividade do sistema nervoso simpático; combinado a tricíclicos ou antipsicóticos (ex.: quetiapina, haloperidol), pode favorecer taquicardia e hipotensão ortostática. Os sintomas cardiovasculares registrados hoje merecem atenção — se vierem acompanhados de tontura forte ao levantar, palpitação intensa ou desmaio, procure atendimento médico.' });
+  }
+
+  return alerts;
+}
+
+function renderAlertasInteracao(date){
+  const el = document.getElementById('d-alertas-interacao');
+  if(!el) return;
+  const entry = STATE.diario[date];
+  if(!entry){ el.innerHTML = ''; return; }
+  const alerts = checarInteracoes(entry, latestAnamnese());
+  if(!alerts.length){ el.innerHTML = ''; return; }
+  el.innerHTML = alerts.map(a=>`
+    <div class="${a.nivel==='urgente' ? 'crisis-box' : 'disclaimer'}" style="margin:12px 0;display:block;">
+      <b>${a.titulo}</b>
+      ${a.texto}
+    </div>`).join('');
+}
 
 function getHumor(e){
   if(e.humorManha!=null || e.humorNoite!=null){
@@ -1167,6 +1257,7 @@ function renderDiario(){
             </select>
           </div>`).join('')}
       </div>
+      <div id="d-alertas-interacao"></div>
     </div>
 
     <div class="card">
@@ -1295,6 +1386,7 @@ function loadDiarioIntoForm(date){
 
   document.getElementById('d-notas').value = e ? (e.notas || '') : '';
   document.getElementById('btn-del-diario').style.display = e ? 'inline-block' : 'none';
+  renderAlertasInteracao(date);
 }
 
 async function saveDiarioForm(){
@@ -1335,6 +1427,7 @@ async function saveDiarioForm(){
   toast(ok ? 'Registro salvo' : 'Não foi possível salvar. Tente novamente.');
   document.getElementById('btn-del-diario').style.display = 'inline-block';
   renderDiarioLista();
+  renderAlertasInteracao(date);
 }
 
 async function deleteDiarioForm(){
@@ -2051,6 +2144,21 @@ function renderAnalise(){
       ` : '<div class="empty">Nenhum check-in VAS ainda — disponível na aba Diário.</div>'}
     </div>
 
+    <div class="card">
+      <h3>Sinais de possível interação (histórico)</h3>
+      <p class="note" style="margin-bottom:10px;">Varredura automática dos dias registrados, cruzando os óleos usados com a classe do seu tratamento (definida na Anamnese) e os efeitos colaterais marcados naquele dia. São alertas educativos baseados em farmacocinética conhecida — não são diagnóstico.</p>
+      ${(() => {
+        const anamneseAtual = latestAnamnese();
+        const flagged = dates
+          .map(d=>({date:d, alerts: checarInteracoes(STATE.diario[d], anamneseAtual)}))
+          .filter(x=>x.alerts.length);
+        if(!flagged.length) return '<div class="empty">Nenhum dia com sinal de possível interação até agora.</div>';
+        return `<div class="table-scroll"><table class="hist"><tbody>
+          ${flagged.map(x=>x.alerts.map(a=>`<tr><td>${fmtDate(x.date)}</td><td><span class="severity ${a.nivel==='urgente'?'sev-4':'sev-2'}">${a.nivel==='urgente'?'Urgente':'Atenção'}</span></td><td>${a.titulo}</td></tr>`).join('')).join('')}
+        </tbody></table></div>`;
+      })()}
+    </div>
+
     <button class="btn primary" id="btn-relatorio">Baixar relatório para consulta</button>
   `;
 
@@ -2145,6 +2253,20 @@ function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio,
     linhas.push('Nota: doses maiores de THC vêm coincidindo com ansiedade mais alta nos registros — padrão compatível com a resposta bifásica dose-dependente descrita na literatura (doses baixas tendem a efeito ansiolítico; doses altas podem piorar ansiedade/pânico em algumas pessoas). Vale discutir com o prescritor.');
   }
   linhas.push('');
+  {
+    const anamneseAtual = latestAnamnese();
+    const flagged = dates
+      .map(d=>({date:d, alerts: checarInteracoes(STATE.diario[d], anamneseAtual)}))
+      .filter(x=>x.alerts.length);
+    if(flagged.length){
+      linhas.push('--- SINAIS DE POSSÍVEL INTERAÇÃO (autorregistro x farmacocinética conhecida) ---');
+      flagged.forEach(x=>x.alerts.forEach(a=>{
+        linhas.push(fmtDate(x.date) + ' [' + (a.nivel==='urgente'?'URGENTE':'ATENÇÃO') + '] ' + a.titulo);
+      }));
+      linhas.push('Estes são alertas educativos baseados em farmacocinética conhecida (CYP450, síndrome serotoninérgica, efeitos cardiovasculares) — não constituem diagnóstico.');
+      linhas.push('');
+    }
+  }
   if(STATE.vas.length){
     linhas.push('--- CHECK-INS VAS MOMENTÂNEOS ---');
     linhas.push('Total de check-ins: ' + STATE.vas.length);
