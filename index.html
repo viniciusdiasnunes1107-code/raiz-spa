@@ -1918,6 +1918,19 @@ function corrLabel(r){
   return `r = ${round1(r)} — associação ${força}, variando ${direção} (não implica causa)`;
 }
 
+/* Alerta educativo: a literatura psiquiátrica descreve resposta bifásica do THC
+   sobre ansiedade — doses baixas tendem a efeito ansiolítico, doses mais altas
+   podem paradoxalmente piorar ansiedade/pânico. Isto é só um sinal descritivo
+   dos próprios dados do usuário, não uma recomendação de dose. */
+function thcAnsiedadeAlerta(r, thcMedio){
+  if(r===null || r<0.3 || thcMedio<=0) return '';
+  return `
+    <div class="crisis-box" style="margin-top:12px;">
+      <b>Padrão a observar: THC e ansiedade caminhando juntos</b>
+      Nos seus registros, doses maiores de THC vêm coincidindo com ansiedade mais alta. A literatura descreve uma resposta bifásica dose-dependente do THC: doses baixas costumam ter efeito ansiolítico, enquanto doses mais altas podem, em algumas pessoas, desencadear ou piorar ansiedade, pânico ou até paranoia. Vale levar esse padrão para o seu psiquiatra ou prescritor reavaliar a dose — isto é um sinal descritivo dos seus próprios dados, não uma recomendação de ajuste.
+    </div>`;
+}
+
 function renderAnalise(){
   const el = document.getElementById('view-analise');
   const dates = Object.keys(STATE.diario).sort();
@@ -1943,6 +1956,17 @@ function renderAnalise(){
   const adesao = Math.round(100*antidepTomouArr.reduce((a,b)=>a+b,0)/n);
   const thcMedio = round1(thcArr.reduce((a,b)=>a+b,0)/n);
   const cbdMedio = round1(cbdArr.reduce((a,b)=>a+b,0)/n);
+  const rThcAns = pearson(thcArr, ansArr);
+
+  const humorManhaVals = dates.map(d=>STATE.diario[d].humorManha).filter(v=>v!=null);
+  const humorNoiteVals = dates.map(d=>STATE.diario[d].humorNoite).filter(v=>v!=null);
+  const ansManhaVals = dates.map(d=>STATE.diario[d].ansiedadeManha).filter(v=>v!=null);
+  const ansNoiteVals = dates.map(d=>STATE.diario[d].ansiedadeNoite).filter(v=>v!=null);
+  const media = arr => arr.length ? round1(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+  const humorManhaMedio = media(humorManhaVals);
+  const humorNoiteMedio = media(humorNoiteVals);
+  const ansManhaMedio = media(ansManhaVals);
+  const ansNoiteMedio = media(ansNoiteVals);
 
   el.innerHTML = `
     <h2 class="section-title">Análise</h2>
@@ -1985,18 +2009,30 @@ function renderAnalise(){
     </div>
 
     <div class="card">
+      <h3>Flutuação intradiária (manhã × noite)</h3>
+      <p class="note" style="margin-bottom:10px;">Captar essa variação dentro do mesmo dia é justamente o que diferencia um registro prospectivo como este de um diário retrospectivo preenchido de memória — e costuma ser útil para o ajuste da medicação.</p>
+      ${(humorManhaMedio!=null || ansManhaMedio!=null) ? `
+        <div class="stat-grid">
+          <div class="stat"><div class="label">Humor manhã / noite</div><div class="value small">${humorManhaMedio ?? '—'} / ${humorNoiteMedio ?? '—'}</div></div>
+          <div class="stat"><div class="label">Ansiedade manhã / noite</div><div class="value small">${ansManhaMedio ?? '—'} / ${ansNoiteMedio ?? '—'}</div></div>
+        </div>
+      ` : '<div class="empty">Ainda sem registros separados de manhã/noite.</div>'}
+    </div>
+
+    <div class="card">
       <h3>Padrões descritivos</h3>
       <p class="note" style="margin-bottom:10px;">Estas são apenas correlações estatísticas simples entre variáveis registradas — não indicam causa e efeito, e não substituem avaliação clínica.</p>
       <div class="table-scroll">
       <table class="hist">
         <tbody>
           <tr><td>THC × humor</td><td>${corrLabel(pearson(thcArr, humorArr))}</td></tr>
-          <tr><td>THC × ansiedade</td><td>${corrLabel(pearson(thcArr, ansArr))}</td></tr>
+          <tr><td>THC × ansiedade</td><td>${corrLabel(rThcAns)}</td></tr>
           <tr><td>CBD × humor</td><td>${corrLabel(pearson(cbdArr, humorArr))}</td></tr>
           <tr><td>CBD × ansiedade</td><td>${corrLabel(pearson(cbdArr, ansArr))}</td></tr>
         </tbody>
       </table>
       </div>
+      ${thcAnsiedadeAlerta(rThcAns, thcMedio)}
     </div>
 
     <div class="card">
@@ -2046,7 +2082,7 @@ function renderAnalise(){
     ], {min:0, max:100});
   }
 
-  document.getElementById('btn-relatorio').addEventListener('click', ()=>gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr));
+  document.getElementById('btn-relatorio').addEventListener('click', ()=>gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr, {humorManhaMedio, humorNoiteMedio, ansManhaMedio, ansNoiteMedio, rThcAns}));
 }
 
 function drawChart(canvasId, type, labels, datasets, yRange){
@@ -2066,7 +2102,8 @@ function drawChart(canvasId, type, labels, datasets, yRange){
   });
 }
 
-function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr){
+function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr, extra){
+  const { humorManhaMedio, humorNoiteMedio, ansManhaMedio, ansNoiteMedio, rThcAns } = extra || {};
   const a = latestAnamnese();
   const lastPhq = STATE.phq9.length ? STATE.phq9[STATE.phq9.length-1] : null;
   const lastGad = STATE.gad7.length ? STATE.gad7[STATE.gad7.length-1] : null;
@@ -2074,6 +2111,7 @@ function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio,
   linhas.push('RELATÓRIO — RAIZ, DIÁRIO DE ACOMPANHAMENTO');
   linhas.push('Gerado em: ' + fmtDate(todayISO()));
   linhas.push('Período coberto: ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length-1]) + ' (' + dates.length + ' dia(s) registrado(s))');
+  linhas.push('Dados prospectivos (autorregistro diário), não preenchidos retroativamente — reduz viés de memória em relação a um diário de papel.');
   linhas.push('');
   linhas.push('--- DADOS DO TRATAMENTO ATUAL ---');
   linhas.push('Diagnóstico informado: ' + (a.diagnostico || 'não informado'));
@@ -2088,15 +2126,24 @@ function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio,
   linhas.push('Dose média de CBD por dia de uso: ' + cbdMedio);
   linhas.push('Adesão registrada ao antidepressivo: ' + adesao + '% dos dias');
   linhas.push('');
+  if(humorManhaMedio!=null || ansManhaMedio!=null){
+    linhas.push('--- FLUTUAÇÃO INTRADIÁRIA (MANHÃ x NOITE) ---');
+    linhas.push('Humor — manhã: ' + (humorManhaMedio ?? '—') + ' · noite: ' + (humorNoiteMedio ?? '—'));
+    linhas.push('Ansiedade — manhã: ' + (ansManhaMedio ?? '—') + ' · noite: ' + (ansNoiteMedio ?? '—'));
+    linhas.push('');
+  }
   linhas.push('--- AUTOTESTES MAIS RECENTES ---');
   linhas.push('PHQ-9: ' + (lastPhq ? lastPhq.score + ' pontos em ' + fmtDate(lastPhq.date) + ' (' + severityBand('phq9', lastPhq.score).label + ')' : 'nenhum aplicado'));
   linhas.push('GAD-7: ' + (lastGad ? lastGad.score + ' pontos em ' + fmtDate(lastGad.date) + ' (' + severityBand('gad7', lastGad.score).label + ')' : 'nenhum aplicado'));
   linhas.push('');
   linhas.push('--- PADRÕES DESCRITIVOS (não causais) ---');
   linhas.push('THC x humor: ' + corrLabel(pearson(thcArr, humorArr)));
-  linhas.push('THC x ansiedade: ' + corrLabel(pearson(thcArr, ansArr)));
+  linhas.push('THC x ansiedade: ' + corrLabel(rThcAns));
   linhas.push('CBD x humor: ' + corrLabel(pearson(cbdArr, humorArr)));
   linhas.push('CBD x ansiedade: ' + corrLabel(pearson(cbdArr, ansArr)));
+  if(rThcAns!=null && rThcAns>=0.3 && thcMedio>0){
+    linhas.push('Nota: doses maiores de THC vêm coincidindo com ansiedade mais alta nos registros — padrão compatível com a resposta bifásica dose-dependente descrita na literatura (doses baixas tendem a efeito ansiolítico; doses altas podem piorar ansiedade/pânico em algumas pessoas). Vale discutir com o prescritor.');
+  }
   linhas.push('');
   if(STATE.vas.length){
     linhas.push('--- CHECK-INS VAS MOMENTÂNEOS ---');
