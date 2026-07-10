@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raiz — diário de acompanhamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#F1F4EA;
+    --surface:#FCFBF7;
+    --surface-2:#F7F5EE;
+    --ink:#1E2B22;
+    --ink-soft:#4E5B4F;
+    --ink-faint:#7C8878;
+    --border:#DCE2D0;
+    --border-strong:#C4CDB6;
+    --thc:#B8843C;
+    --thc-bg:#F6EBD8;
+    --thc-ink:#6B4C1F;
+    --cbd:#2E7385;
+    --cbd-bg:#DFEDF0;
+    --cbd-ink:#194955;
+    --antidep:#7A5271;
+    --antidep-bg:#EFE3EC;
+    --antidep-ink:#4C3049;
+    --action:#3F6B4F;
+    --action-hover:#325940;
+    --danger:#A8402C;
+    --danger-bg:#F7E4DF;
+    --warn-bg:#FBF0DA;
+    --warn-ink:#7A5A12;
+    --radius:10px;
+    --font-display:'Montserrat',sans-serif;
+    --font-body:'Montserrat',sans-serif;
+    --font-mono:'Montserrat',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:min(1500px, 96vw);margin:0 auto;padding:0 20px 80px;display:none;}
+
+  .auth-gate{
+    position:fixed; inset:0;
+    background:var(--bg);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:300;
+  }
+  .auth-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:30px 28px;
+    max-width:360px;
+    width:100%;
+  }
+  .auth-card h1{
+    font-family:var(--font-display);
+    color:var(--action);
+    font-size:28px;
+    margin:0 0 6px;
+  }
+  .logout-btn{
+    background:none;
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:8px 11px;
+    font-family:var(--font-body);
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-soft);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .logout-btn:hover{background:var(--surface-2);}
+
+  /* header */
+  header.top{
+    position:relative;
+    padding:36px 4px 22px;
+    overflow:hidden;
+    border-bottom:1px solid var(--border);
+    margin-bottom:18px;
+  }
+  header.top svg.roots{
+    position:absolute; inset:0; width:100%; height:100%;
+    opacity:0.09; pointer-events:none;
+  }
+  header.top .titlewrap{position:relative;z-index:1;}
+  header.top h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:34px;
+    margin:0 0 4px;
+    letter-spacing:0.2px;
+    color:var(--action);
+  }
+  header.top p.sub{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14.5px;
+  }
+
+  /* disclaimer */
+  .disclaimer{
+    background:var(--warn-bg);
+    border:1px solid #E7D6A0;
+    color:var(--warn-ink);
+    border-radius:var(--radius);
+    padding:12px 16px;
+    font-size:13px;
+    margin-bottom:20px;
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+  }
+  .disclaimer b{color:var(--warn-ink);}
+
+  /* nav */
+  nav.tabs{
+    display:flex;
+    gap:4px;
+    margin-bottom:24px;
+    border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+  }
+  nav.tabs button{
+    background:none;
+    border:none;
+    font-family:var(--font-body);
+    font-size:14.5px;
+    font-weight:500;
+    color:var(--ink-soft);
+    padding:10px 16px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    transition:color .15s;
+  }
+  nav.tabs button:hover{color:var(--ink);}
+  nav.tabs button.active{
+    color:var(--action);
+    border-bottom-color:var(--action);
+  }
+
+  section.view{display:none;}
+  section.view.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  h2.section-title{
+    font-family:var(--font-display);
+    font-size:21px;
+    font-weight:600;
+    margin:0 0 4px;
+    color:var(--action);
+  }
+  p.section-desc{
+    color:var(--ink-soft);
+    font-size:13.5px;
+    margin:0 0 20px;
+    max-width:62ch;
+  }
+  .card p:not(.q):not(.meta){max-width:70ch;}
+
+  .masonry{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;}
+  .masonry > .card{margin-bottom:0;}
+  @media(min-width:860px){
+    .masonry{grid-template-columns:1fr 1fr;gap:20px;}
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:20px 22px;
+    margin-bottom:16px;
+  }
+  .card h3{
+    font-family:var(--font-display);
+    font-size:16.5px;
+    font-weight:600;
+    margin:0 0 14px;
+    color:var(--action);
+  }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  @media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr;}}
+  @media(max-width:420px){
+    header.top h1{font-size:27px;}
+    header.top{padding:28px 4px 18px;}
+    .leaf-deco{width:38px;height:38px;top:10px;right:10px;}
+  }
+
+  label{
+    display:block;
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+  }
+  .field{margin-bottom:14px;}
+  input[type=text],input[type=number],input[type=date],input[type=time],
+  select,textarea{
+    width:100%;
+    font-family:var(--font-body);
+    font-size:14px;
+    padding:8px 10px;
+    border:1px solid var(--border-strong);
+    border-radius:7px;
+    background:#fff;
+    color:var(--ink);
+  }
+  input:focus,select:focus,textarea:focus{
+    outline:2px solid var(--action);
+    outline-offset:1px;
+  }
+  textarea{resize:vertical;min-height:64px;font-family:var(--font-body);}
+  .num-mono{font-family:var(--font-mono);}
+
+  input[type=range]{
+    width:100%;
+    accent-color:var(--action);
+  }
+  .slider-row{display:flex;align-items:center;gap:12px;}
+  .slider-out{
+    font-family:var(--font-mono);
+    font-weight:500;
+    min-width:28px;
+    text-align:right;
+    font-size:15px;
+  }
+
+  .checks{display:flex;flex-wrap:wrap;gap:8px 16px;}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);}
+  .chk input{width:auto;}
+
+  button.btn{
+    font-family:var(--font-body);
+    font-weight:500;
+    font-size:14px;
+    padding:9px 18px;
+    border-radius:8px;
+    border:1px solid var(--border-strong);
+    background:#fff;
+    color:var(--ink);
+    cursor:pointer;
+    transition:background .15s;
+  }
+  button.btn:hover{background:var(--surface-2);}
+  button.btn.primary{
+    background:var(--action);
+    border-color:var(--action);
+    color:#fff;
+  }
+  button.btn.primary:hover{background:var(--action-hover);}
+  button.btn.danger{color:var(--danger);border-color:var(--danger);background:#fff;}
+  button.btn.danger:hover{background:var(--danger-bg);}
+  button.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  .badge{
+    display:inline-block;
+    font-size:11.5px;
+    font-weight:600;
+    padding:2px 9px;
+    border-radius:99px;
+    font-family:var(--font-mono);
+  }
+  .badge.thc{background:var(--thc-bg);color:var(--thc-ink);}
+  .badge.cbd{background:var(--cbd-bg);color:var(--cbd-ink);}
+  .badge.antidep{background:var(--antidep-bg);color:var(--antidep-ink);}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+  .stat{
+    background:#E8F0E9;
+    border:1px solid #D2E3D6;
+    border-radius:10px;
+    padding:14px 16px;
+    text-align:left;
+    font-family:var(--font-body);
+    width:100%;
+    display:block;
+    margin:0;
+  }
+  .stat.link{
+    cursor:pointer;
+    appearance:none;
+    -webkit-appearance:none;
+    transition:background .15s, border-color .15s, transform .1s;
+  }
+  .stat.link:hover{background:#DCEBDE;border-color:#BFD8C6;}
+  .stat.link:active{transform:scale(0.98);}
+  .stat.link:focus-visible{outline:2px solid var(--action);outline-offset:2px;}
+  .stat .label{font-size:12px;color:var(--ink-soft);margin-bottom:4px;}
+  .stat .value{font-family:var(--font-mono);font-size:22px;font-weight:600;color:var(--action);}
+  .stat .value.small{font-size:15px;}
+
+  table.hist{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table.hist th{
+    text-align:left;
+    font-weight:500;
+    color:var(--ink-soft);
+    font-size:12px;
+    padding:6px 8px;
+    border-bottom:1px solid var(--border-strong);
+    white-space:nowrap;
+  }
+  table.hist td{padding:7px 8px;border-bottom:1px solid var(--border);word-break:break-word;}
+  table.hist tr:last-child td{border-bottom:none;}
+
+  .severity{
+    display:inline-block;
+    padding:2px 10px;
+    border-radius:99px;
+    font-size:12px;
+    font-weight:600;
+  }
+  .sev-0{background:#E4EFDA;color:#33591E;}
+  .sev-1{background:#F3EBC9;color:#7A5A12;}
+  .sev-2{background:#F6DEC2;color:#8A4A0E;}
+  .sev-3{background:#F5D3C7;color:#8C3418;}
+  .sev-4{background:var(--danger-bg);color:var(--danger);}
+
+  .crisis-box{
+    background:var(--danger-bg);
+    border:1px solid #E3B8AC;
+    border-radius:10px;
+    padding:16px 18px;
+    margin:16px 0;
+    font-size:13.5px;
+    color:#5E2113;
+  }
+  .crisis-box b{display:block;margin-bottom:6px;font-size:14.5px;}
+
+  .question-block{
+    padding:14px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .question-block:last-of-type{border-bottom:none;}
+  .question-block p.q{font-size:14px;margin:0 0 10px;color:var(--ink);}
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;}
+  .opt{
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:12.5px;
+    text-align:center;
+    cursor:pointer;
+    background:#fff;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .opt.sel{background:var(--action);border-color:var(--action);color:#fff;}
+
+  .empty{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--ink-faint);
+    font-size:13.5px;
+  }
+  .empty::before{
+    content:'';
+    display:block;
+    width:38px;height:38px;
+    margin:0 auto 10px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg stroke='%233F6B4F' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z'/%3E%3Cpath d='M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z' transform='rotate(35 50 55)'/%3E%3Cpath d='M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z' transform='rotate(-35 50 55)'/%3E%3Cpath d='M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z' transform='rotate(70 50 55)'/%3E%3Cpath d='M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z' transform='rotate(-70 50 55)'/%3E%3Cline x1='50' y1='55' x2='50' y2='72'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:contain;
+    opacity:0.4;
+  }
+
+  .chart-wrap{position:relative;height:260px;margin:18px 0 8px;}
+  .legend-row{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft);margin-bottom:4px;}
+  .legend-row span{display:flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;}
+
+  .entry-row{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    align-items:center;
+    gap:6px 12px;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+    font-size:13.5px;
+  }
+  .entry-row:last-child{border-bottom:none;}
+  .entry-row .date{font-family:var(--font-mono);font-weight:500;min-width:78px;}
+  .entry-row .tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:1 1 200px;}
+  .entry-row .actions button{background:none;border:none;color:var(--ink-faint);cursor:pointer;font-size:12.5px;text-decoration:underline;}
+
+  .toast{
+    position:fixed;
+    bottom:24px;left:50%;
+    transform:translateX(-50%);
+    background:var(--ink);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:8px;
+    font-size:13.5px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s, transform .25s;
+    z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .bell-btn{
+    position:relative;
+    background:#fff;
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:8px 11px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:var(--font-body);
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-soft);
+    flex-shrink:0;
+  }
+  .bell-btn:hover{background:var(--surface-2);}
+  .notif-badge{
+    position:absolute;
+    top:-6px;right:-6px;
+    background:var(--danger);
+    color:#fff;
+    font-size:10.5px;
+    font-weight:600;
+    border-radius:99px;
+    min-width:17px;
+    height:17px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 4px;
+  }
+  .notif-badge.hidden{display:none;}
+
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(20,28,22,0.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:200;
+  }
+  .modal-box{
+    background:var(--surface);
+    border-radius:14px;
+    max-width:480px;
+    width:100%;
+    max-height:82vh;
+    overflow-y:auto;
+    padding:24px;
+    position:relative;
+  }
+  .modal-box h3{
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:600;
+    color:var(--action);
+    margin:0 0 6px;
+  }
+  .modal-close{
+    position:absolute;
+    top:16px; right:16px;
+    background:none;
+    border:none;
+    font-size:18px;
+    line-height:1;
+    color:var(--ink-faint);
+    cursor:pointer;
+    padding:4px;
+  }
+  .notif-item{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .notif-item:last-child{margin-bottom:0;}
+  .notif-item .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+  .notif-item .testname{font-weight:600;font-size:14px;color:var(--ink);}
+  .notif-item .meta{font-size:12px;color:var(--ink-faint);margin-top:2px;}
+  .notif-status{
+    display:inline-block;
+    padding:2px 9px;
+    border-radius:99px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .notif-status.unread{background:var(--danger-bg);color:var(--danger);}
+  .notif-status.read{background:var(--warn-bg);color:var(--warn-ink);}
+  .notif-status.done{background:#E4EFDA;color:#33591E;}
+  .notif-filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .notif-filters button{
+    font-family:var(--font-body);
+    font-size:12px;
+    font-weight:500;
+    padding:6px 12px;
+    border-radius:99px;
+    border:1px solid var(--border-strong);
+    background:#fff;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .notif-filters button.active{background:var(--action);border-color:var(--action);color:#fff;}
+
+  .note{font-size:12.5px;color:var(--ink-faint);margin-top:4px;}
+  .leaf-deco{pointer-events:none;}
+  .divider-root{
+    height:22px;
+    margin:6px 0 18px;
+    opacity:0.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="auth-gate" id="auth-gate">
+  <div class="auth-card">
+    <h1>Raiz</h1>
+    <p style="color:var(--ink-soft);font-size:13.5px;margin:0 0 20px;">Entre com seu e-mail para acessar seus registros. Vamos enviar um link de acesso — sem senha para lembrar.</p>
+    <div class="field">
+      <label>E-mail</label>
+      <input id="auth-email" type="email" placeholder="voce@email.com">
+    </div>
+    <button class="btn primary" id="auth-send" style="width:100%;">Enviar link de acesso</button>
+    <p class="note" id="auth-status" style="margin-top:12px;"></p>
+  </div>
+</div>
+
+<div id="app">
+
+  <header class="top">
+    <svg class="roots" viewBox="0 0 900 140" preserveAspectRatio="none">
+      <path d="M0,10 C120,30 160,60 220,55 C280,50 300,20 360,25 C420,30 440,70 500,68 C560,66 580,30 640,35 C700,40 720,90 780,85 C820,82 850,60 900,65" stroke="#3F6B4F" stroke-width="1.4" fill="none"/>
+      <path d="M220,55 C230,80 210,100 230,125" stroke="#3F6B4F" stroke-width="1" fill="none"/>
+      <path d="M500,68 C510,90 495,105 505,130" stroke="#3F6B4F" stroke-width="1" fill="none"/>
+      <path d="M780,85 C790,100 775,115 785,135" stroke="#3F6B4F" stroke-width="1" fill="none"/>
+      <path d="M360,25 C355,5 370,-5 365,-20" stroke="#3F6B4F" stroke-width="1" fill="none"/>
+    </svg>
+    <svg class="leaf-deco" viewBox="0 0 100 100" style="position:absolute;top:14px;right:18px;width:52px;height:52px;opacity:0.16;">
+      <g stroke="#3F6B4F" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z"/>
+        <path d="M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z" transform="rotate(35 50 55)"/>
+        <path d="M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z" transform="rotate(-35 50 55)"/>
+        <path d="M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z" transform="rotate(70 50 55)"/>
+        <path d="M50,55 C46,40 44,20 50,4 C56,20 54,40 50,55 Z" transform="rotate(-70 50 55)"/>
+        <line x1="50" y1="55" x2="50" y2="72"/>
+      </g>
+    </svg>
+    <div class="titlewrap" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1>Raiz</h1>
+        <p class="sub">diário de acompanhamento — óleos, humor e tratamento</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="bell-btn" id="btn-notif" aria-label="Notificações de autotestes">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notificações
+          <span class="notif-badge hidden" id="notif-badge">0</span>
+        </button>
+        <button class="logout-btn" id="btn-logout">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="modal-root"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-view="inicio" class="active">Início</button>
+    <button data-view="anamnese">Anamnese</button>
+    <button data-view="diario">Diário</button>
+    <button data-view="testes">Testes</button>
+    <button data-view="analise">Análise</button>
+  </nav>
+
+  <section class="view active" id="view-inicio"></section>
+  <section class="view" id="view-anamnese"></section>
+  <section class="view" id="view-diario"></section>
+  <section class="view" id="view-testes"></section>
+  <section class="view" id="view-analise"></section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO DO SUPABASE
+   Substitua os dois valores abaixo pelos do seu projeto:
+   Supabase → Project Settings → API → Project URL / anon public key
+   ============================================================ */
+const SUPABASE_URL = 'https://yxlcfwvgcutubutepgqy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_i3c9QnoIDwAyTSdPqivQMw_EP-wJihp';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+window.STATE = { anamnese:null, anamneseHistory:[], diario:{}, phq9:[], gad7:[], who5:[], isi:[], cuditr:[], fibser:[], notifications:[] };
+let currentUser = null;
+
+/* ---------- storage helpers (Supabase) ---------- */
+async function loadJSON(key, fallback){
+  try{
+    if(!currentUser) return fallback;
+    const { data, error } = await sb.from('app_data').select('value').eq('user_id', currentUser.id).eq('key', key).maybeSingle();
+    if(error){ console.error('load error', key, error); return fallback; }
+    return data ? data.value : fallback;
+  }catch(e){ console.error('load exception', key, e); return fallback; }
+}
+async function saveJSON(key, value){
+  try{
+    if(!currentUser) return false;
+    const { error } = await sb.from('app_data').upsert({
+      user_id: currentUser.id,
+      key,
+      value,
+      updated_at: new Date().toISOString()
+    });
+    if(error){ console.error('save error', key, error); return false; }
+    return true;
+  }catch(e){ console.error('save exception', key, e); return false; }
+}
+
+/* Busca todas as chaves do usuário em uma única consulta (usado no carregamento inicial) */
+async function fetchAllAppData(){
+  if(!currentUser) return {};
+  try{
+    const { data, error } = await sb.from('app_data').select('key,value').eq('user_id', currentUser.id);
+    if(error){ console.error('fetchAll error', error); return {}; }
+    const map = {};
+    data.forEach(row => { map[row.key] = row.value; });
+    return map;
+  }catch(e){ console.error('fetchAll exception', e); return {}; }
+}
+
+/* ---------- autenticação (link mágico por e-mail) ---------- */
+let appInitialized = false;
+
+async function boot(session){
+  const gate = document.getElementById('auth-gate');
+  const app = document.getElementById('app');
+  if(session){
+    currentUser = session.user;
+    gate.style.display = 'none';
+    app.style.display = 'block';
+    if(!appInitialized){
+      appInitialized = true;
+      await init();
+    }
+  }else{
+    currentUser = null;
+    appInitialized = false;
+    gate.style.display = 'flex';
+    app.style.display = 'none';
+  }
+}
+
+document.getElementById('auth-send').addEventListener('click', async ()=>{
+  const email = document.getElementById('auth-email').value.trim();
+  const statusEl = document.getElementById('auth-status');
+  if(!email){ statusEl.textContent = 'Digite um e-mail válido.'; return; }
+  statusEl.textContent = 'Enviando link...';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  statusEl.textContent = error
+    ? 'Não foi possível enviar: ' + error.message
+    : 'Link enviado! Abra seu e-mail e clique nele para entrar.';
+});
+
+document.getElementById('btn-logout').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+sb.auth.onAuthStateChange((_event, session)=>{ boot(session); });
+sb.auth.getSession().then(({data:{session}})=>boot(session));
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function fmtDate(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function round1(n){ return Math.round(n*10)/10; }
+
+/* ---------- tabs ---------- */
+function switchToView(viewName){
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
+  document.querySelectorAll('section.view').forEach(s=>s.classList.toggle('active', s.id==='view-'+viewName));
+  if(viewName === 'analise') renderAnalise();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.getElementById('tabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-view]');
+  if(!btn) return;
+  switchToView(btn.dataset.view);
+});
+
+/* ============================================================
+   INÍCIO
+   ============================================================ */
+function renderInicio(){
+  const el = document.getElementById('view-inicio');
+  const dias = Object.keys(STATE.diario).length;
+  const anamOk = STATE.anamneseHistory.length > 0;
+  const todosTestes = TEST_ORDER.flatMap(id => STATE[id].map(r=>({...r, tipo:id})));
+  const totalTestes = todosTestes.length;
+  const ultimoTeste = todosTestes.length ? todosTestes.sort((a,b)=>a.date<b.date?1:-1)[0] : null;
+
+  el.innerHTML = `
+    <h2 class="section-title">Visão geral</h2>
+    <p class="section-desc">Um retrato rápido do que já foi registrado até agora.</p>
+    <div class="stat-grid">
+      <button class="stat link" data-goto="diario"><div class="label">Dias registrados no diário</div><div class="value">${dias}</div></button>
+      <button class="stat link" data-goto="anamnese"><div class="label">Anamnese</div><div class="value small">${anamOk ? 'Preenchida' : 'Pendente'}</div></button>
+      <button class="stat link" data-goto="testes"><div class="label">Autotestes aplicados</div><div class="value">${totalTestes}</div></button>
+      <button class="stat link" data-goto="testes"><div class="label">Último autoteste</div><div class="value small">${ultimoTeste ? TEST_DEFS[ultimoTeste.tipo].label+' · '+round1(ultimoTeste.score)+(TEST_DEFS[ultimoTeste.tipo].scoreSuffix||'')+' · '+fmtDate(ultimoTeste.date) : '—'}</div></button>
+    </div>
+
+    <div class="card">
+      <h3>Como usar</h3>
+      <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 10px;">
+        1. Preencha a <b>anamnese</b> uma vez, com seu histórico e medicações atuais.<br>
+        2. Todo dia, registre no <b>diário</b> o uso dos óleos (com motivo e alívio percebido), do antidepressivo, sono, humor e ansiedade de manhã e à noite, e efeitos colaterais.<br>
+        3. Aplique os <b>autotestes</b> (PHQ-9, GAD-7, WHO-5, ISI, CUDIT-R e FIBSER) periodicamente para acompanhar sintomas ao longo do tempo.<br>
+        4. Veja padrões e gere um relatório para sua consulta em <b>Análise</b>.
+      </p>
+    </div>
+
+  `;
+
+  el.querySelectorAll('.stat[data-goto]').forEach(s=>{
+    s.addEventListener('click', ()=>switchToView(s.dataset.goto));
+  });
+}
+
+/* ============================================================
+   ANAMNESE
+   ============================================================ */
+const ANAMNESE_FIELD_LABELS = {
+  nome:'Nome', idade:'Idade', diagnostico:'Diagnóstico(s) atual(is)', profissional:'Profissional responsável',
+  antidepNome:'Antidepressivo', antidepDose:'Dose habitual', antidepHorario:'Horário habitual', antidepObs:'Observações sobre o antidepressivo',
+  thcInfo:'Óleo de THC', cbdInfo:'Óleo de CBD', motivo:'Motivo do uso / objetivos',
+  historico:'Histórico psiquiátrico', saude:'Sono, apetite e condições clínicas'
+};
+
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmtDateTime(iso){
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(2);
+  const hh = String(d.getHours()).padStart(2,'0');
+  const min = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+}
+
+function latestAnamnese(){
+  if(STATE.anamneseHistory.length){
+    const sorted = [...STATE.anamneseHistory].sort((x,y)=>x.savedAt<y.savedAt?1:-1);
+    return sorted[0].data || {};
+  }
+  return STATE.anamnese || {};
+}
+
+function renderAnamnese(){
+  const el = document.getElementById('view-anamnese');
+  const lastEntry = STATE.anamneseHistory.length ? [...STATE.anamneseHistory].sort((x,y)=>x.savedAt<y.savedAt?1:-1)[0] : null;
+  el.innerHTML = `
+    <h2 class="section-title">Anamnese</h2>
+    <p class="section-desc">Cada vez que você salva, um novo registro é guardado no histórico — o formulário sempre começa em branco, para não misturar respostas antigas com as novas.</p>
+
+    <div class="masonry">
+    <div class="card">
+      <h3>Dados gerais</h3>
+      <div class="grid2">
+        <div class="field"><label>Nome ou como quer ser chamado</label><input id="a-nome" type="text" value=""></div>
+        <div class="field"><label>Idade</label><input id="a-idade" type="number" min="0" value=""></div>
+      </div>
+      <div class="field"><label>Diagnóstico(s) atual(is), se houver</label><input id="a-diagnostico" type="text" placeholder="ex.: transtorno depressivo maior, TAG" value=""></div>
+      <div class="field"><label>Profissional responsável (psiquiatra / psicólogo)</label><input id="a-profissional" type="text" placeholder="nome e especialidade" value=""></div>
+    </div>
+
+    <div class="card">
+      <h3>Antidepressivo atual</h3>
+      <div class="grid3">
+        <div class="field"><label>Nome do medicamento</label><input id="a-antidep-nome" type="text" placeholder="ex.: escitalopram" value=""></div>
+        <div class="field"><label>Dose habitual</label><input id="a-antidep-dose" type="text" placeholder="ex.: 10 mg" value=""></div>
+        <div class="field"><label>Horário habitual</label><input id="a-antidep-horario" type="time" value=""></div>
+      </div>
+      <div class="field"><label>Há quanto tempo usa e outros medicamentos em uso</label><textarea id="a-antidep-obs" placeholder="tempo de uso, outros medicamentos, efeitos colaterais já notados..."></textarea></div>
+    </div>
+
+    <div class="card">
+      <h3>Uso dos óleos</h3>
+      <div class="grid2">
+        <div class="field"><label>Óleo de THC — concentração e origem</label><input id="a-thc-info" type="text" placeholder="ex.: 1% THC, prescrição médica" value=""></div>
+        <div class="field"><label>Óleo de CBD — concentração e origem</label><input id="a-cbd-info" type="text" placeholder="ex.: 5% CBD, prescrição médica" value=""></div>
+      </div>
+      <div class="field"><label>Motivo do uso e objetivos com o tratamento</label><textarea id="a-motivo" placeholder="o que espera que os óleos ajudem, desde quando usa..."></textarea></div>
+    </div>
+
+    <div class="card">
+      <h3>Histórico</h3>
+      <div class="field"><label>Histórico psiquiátrico (internações, crises, tratamentos anteriores)</label><textarea id="a-historico"></textarea></div>
+      <div class="field"><label>Sono e apetite habituais, condições clínicas relevantes</label><textarea id="a-saude"></textarea></div>
+    </div>
+    </div>
+
+    <button class="btn primary" id="btn-save-anamnese">Salvar anamnese</button>
+    <span class="note" id="anamnese-saved-note">${lastEntry ? 'Último registro salvo: '+fmtDateTime(lastEntry.savedAt) : ''}</span>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Histórico de atualizações</h3>
+      <p class="note" style="margin:-6px 0 12px;">Clique em um registro para ver todos os campos como estavam naquela data.</p>
+      <div id="a-history-list"></div>
+    </div>
+  `;
+
+  document.getElementById('btn-save-anamnese').addEventListener('click', async ()=>{
+    const obj = {
+      nome: document.getElementById('a-nome').value.trim(),
+      idade: document.getElementById('a-idade').value,
+      diagnostico: document.getElementById('a-diagnostico').value.trim(),
+      profissional: document.getElementById('a-profissional').value.trim(),
+      antidepNome: document.getElementById('a-antidep-nome').value.trim(),
+      antidepDose: document.getElementById('a-antidep-dose').value.trim(),
+      antidepHorario: document.getElementById('a-antidep-horario').value,
+      antidepObs: document.getElementById('a-antidep-obs').value.trim(),
+      thcInfo: document.getElementById('a-thc-info').value.trim(),
+      cbdInfo: document.getElementById('a-cbd-info').value.trim(),
+      motivo: document.getElementById('a-motivo').value.trim(),
+      historico: document.getElementById('a-historico').value.trim(),
+      saude: document.getElementById('a-saude').value.trim(),
+      atualizadoEm: todayISO()
+    };
+
+    const snapshot = {
+      id: 'anam_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      savedAt: new Date().toISOString(),
+      data: obj
+    };
+    STATE.anamneseHistory.push(snapshot);
+    const ok = await saveJSON('anamnese-history', STATE.anamneseHistory);
+
+    toast(ok ? 'Anamnese salva' : 'Não foi possível salvar. Tente novamente.');
+    renderAnamnese();
+  });
+
+  renderAnamneseHistoryList();
+}
+
+function renderAnamneseHistoryList(){
+  const wrap = document.getElementById('a-history-list');
+  if(!wrap) return;
+  const entries = [...STATE.anamneseHistory].sort((x,y)=>x.savedAt<y.savedAt?1:-1).slice(0,30);
+  if(!entries.length){ wrap.innerHTML = '<div class="empty">Nenhum salvamento anterior ainda.</div>'; return; }
+  wrap.innerHTML = entries.map(e=>{
+    const preview = e.data.diagnostico || e.data.antidepNome || 'sem detalhes adicionais';
+    return `<div class="entry-row" style="cursor:pointer;" data-id="${e.id}">
+      <span class="date">${fmtDateTime(e.savedAt)}</span>
+      <span class="tags"><span style="color:var(--ink-faint);">${escapeHtml(preview)}</span></span>
+      <span class="actions"><button type="button">ver detalhes</button></span>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.entry-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const entry = STATE.anamneseHistory.find(e=>e.id===row.dataset.id);
+      if(entry) openAnamneseSnapshotModal(entry);
+    });
+  });
+}
+
+function openAnamneseSnapshotModal(entry){
+  const root = document.getElementById('modal-root');
+  const d = entry.data;
+  const rows = Object.entries(ANAMNESE_FIELD_LABELS).map(([key,label])=>{
+    const val = d[key];
+    if(val === undefined || val === null || val === '') return '';
+    return `<div style="margin-bottom:12px;"><div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:2px;">${label}</div><div style="font-size:14px;color:var(--ink);white-space:pre-wrap;">${escapeHtml(val)}</div></div>`;
+  }).join('');
+  root.innerHTML = `
+    <div class="modal-overlay" id="anam-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="anam-close" aria-label="Fechar">✕</button>
+        <h3>Anamnese — ${fmtDateTime(entry.savedAt)}</h3>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 16px;">Retrato da anamnese salvo nesta data. Para atualizar os dados atuais, use o formulário na aba Anamnese.</p>
+        ${rows || '<p class="note">Nenhum campo preenchido neste registro.</p>'}
+      </div>
+    </div>
+  `;
+  document.getElementById('anam-close').addEventListener('click', closeModal);
+  document.getElementById('anam-overlay').addEventListener('click', (e)=>{ if(e.target.id==='anam-overlay') closeModal(); });
+}
+
+/* ============================================================
+   DIÁRIO
+   ============================================================ */
+const SIDE_EFFECTS = ['Boca seca','Sonolência','Tontura','Taquicardia','Ansiedade aumentada','Náusea','Alteração de apetite','Dor de cabeça'];
+const MOTIVO_OPTS = ['','Dor','Ansiedade','Insônia','Rotina / manutenção','Outro'];
+const INTENSIDADE_OPTS = ['Ausente','Leve','Moderado','Intenso'];
+
+function getHumor(e){
+  if(e.humorManha!=null || e.humorNoite!=null){
+    const vals=[e.humorManha,e.humorNoite].filter(v=>v!=null);
+    return vals.length ? round1(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  }
+  return e.humor!=null ? e.humor : null;
+}
+function getAnsiedade(e){
+  if(e.ansiedadeManha!=null || e.ansiedadeNoite!=null){
+    const vals=[e.ansiedadeManha,e.ansiedadeNoite].filter(v=>v!=null);
+    return vals.length ? round1(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+  }
+  return e.ansiedade!=null ? e.ansiedade : null;
+}
+
+function renderDiario(){
+  const el = document.getElementById('view-diario');
+  const antidepNome = latestAnamnese().antidepNome || 'antidepressivo';
+  const motivoOptions = MOTIVO_OPTS.map(m=>`<option value="${m}">${m || '—'}</option>`).join('');
+  el.innerHTML = `
+    <h2 class="section-title">Diário</h2>
+    <p class="section-desc">Um registro por dia. Se já existir um registro para a data escolhida, ele será carregado para edição.</p>
+
+    <div class="card">
+      <div class="field" style="max-width:200px;margin-bottom:0;">
+        <label>Data</label>
+        <input id="d-data" type="date" value="${todayISO()}" max="${todayISO()}">
+      </div>
+    </div>
+
+    <div class="masonry">
+    <div class="card">
+      <h3>Óleo de THC</h3>
+      <div class="grid3">
+        <div class="field"><label><span class="badge thc">THC</span> dose</label><input id="d-thc-dose" type="number" min="0" step="0.1" placeholder="gotas ou mg"></div>
+        <div class="field"><label>unidade</label>
+          <select id="d-thc-unidade"><option value="gotas">gotas</option><option value="mg">mg</option><option value="ml">ml</option></select>
+        </div>
+        <div class="field"><label>horário</label><input id="d-thc-horario" type="time"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>motivo do uso</label><select id="d-thc-motivo">${motivoOptions}</select></div>
+        <div class="field">
+          <label>alívio percebido (0 = nenhum · 10 = total)</label>
+          <div class="slider-row"><input id="d-thc-alivio" type="range" min="0" max="10" step="1" value="0"><span class="slider-out" id="d-thc-alivio-out">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Óleo de CBD</h3>
+      <div class="grid3">
+        <div class="field"><label><span class="badge cbd">CBD</span> dose</label><input id="d-cbd-dose" type="number" min="0" step="0.1" placeholder="gotas ou mg"></div>
+        <div class="field"><label>unidade</label>
+          <select id="d-cbd-unidade"><option value="gotas">gotas</option><option value="mg">mg</option><option value="ml">ml</option></select>
+        </div>
+        <div class="field"><label>horário</label><input id="d-cbd-horario" type="time"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>motivo do uso</label><select id="d-cbd-motivo">${motivoOptions}</select></div>
+        <div class="field">
+          <label>alívio percebido (0 = nenhum · 10 = total)</label>
+          <div class="slider-row"><input id="d-cbd-alivio" type="range" min="0" max="10" step="1" value="0"><span class="slider-out" id="d-cbd-alivio-out">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Antidepressivo</h3>
+      <div class="grid3">
+        <div class="field chk" style="align-self:end;"><label style="margin:0;"><input type="checkbox" id="d-antidep-tomou" style="width:auto;"> Tomou o ${antidepNome} hoje</label></div>
+        <div class="field"><label>dose tomada</label><input id="d-antidep-dose" type="text" placeholder="ex.: 10 mg" value="${latestAnamnese().antidepDose||''}"></div>
+        <div class="field"><label>horário</label><input id="d-antidep-horario" type="time" value="${latestAnamnese().antidepHorario||''}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Sono</h3>
+      <div class="grid2">
+        <div class="field"><label>horas dormidas</label><input id="d-sono-horas" type="number" min="0" max="24" step="0.5"></div>
+        <div class="field"><label>qualidade do sono</label>
+          <select id="d-sono-qualidade">
+            <option value="">—</option>
+            <option value="1">1 · muito ruim</option>
+            <option value="2">2 · ruim</option>
+            <option value="3">3 · regular</option>
+            <option value="4">4 · boa</option>
+            <option value="5">5 · ótima</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Humor e ansiedade</h3>
+      <p class="note" style="margin:-6px 0 12px;">Registrados de manhã e à noite para captar variação ao longo do dia.</p>
+      <div class="grid2">
+        <div class="field">
+          <label>Humor de manhã (0 = péssimo · 10 = ótimo)</label>
+          <div class="slider-row"><input id="d-humor-manha" type="range" min="0" max="10" step="1" value="5"><span class="slider-out" id="d-humor-manha-out">5</span></div>
+        </div>
+        <div class="field">
+          <label>Humor à noite (0 = péssimo · 10 = ótimo)</label>
+          <div class="slider-row"><input id="d-humor-noite" type="range" min="0" max="10" step="1" value="5"><span class="slider-out" id="d-humor-noite-out">5</span></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Ansiedade de manhã (0 = nenhuma · 10 = extrema)</label>
+          <div class="slider-row"><input id="d-ansiedade-manha" type="range" min="0" max="10" step="1" value="5"><span class="slider-out" id="d-ansiedade-manha-out">5</span></div>
+        </div>
+        <div class="field">
+          <label>Ansiedade à noite (0 = nenhuma · 10 = extrema)</label>
+          <div class="slider-row"><input id="d-ansiedade-noite" type="range" min="0" max="10" step="1" value="5"><span class="slider-out" id="d-ansiedade-noite-out">5</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Efeitos colaterais percebidos</h3>
+      <p class="note" style="margin:-6px 0 12px;">Marque a intensidade de cada um — deixe em "Ausente" se não ocorreu.</p>
+      <div id="d-efeitos" class="grid2">
+        ${SIDE_EFFECTS.map((s,i)=>`
+          <div class="field" style="margin-bottom:0;">
+            <label>${s}</label>
+            <select data-efeito="${s}">
+              ${INTENSIDADE_OPTS.map((o,v)=>`<option value="${v}">${o}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Outras substâncias no dia</h3>
+      <div class="grid3">
+        <div class="field chk" style="align-self:end;"><label style="margin:0;"><input type="checkbox" id="d-alcool" style="width:auto;"> Consumiu álcool</label></div>
+        <div class="field"><label>quantidade (opcional)</label><input id="d-alcool-qtd" type="text" placeholder="ex.: 2 taças de vinho"></div>
+        <div class="field"><label>cafeína (doses no dia)</label><input id="d-cafeina" type="number" min="0" step="1" placeholder="ex.: 2"></div>
+      </div>
+      <div class="field" style="margin-bottom:0;"><label>outras substâncias (opcional)</label><input id="d-outras-substancias" type="text" placeholder="qualquer outra coisa relevante"></div>
+    </div>
+
+    <div class="card">
+      <h3>Notas livres</h3>
+      <div class="field" style="margin-bottom:0;">
+        <textarea id="d-notas" placeholder="qualquer coisa que queira registrar sobre hoje..."></textarea>
+      </div>
+    </div>
+    </div>
+
+    <button class="btn primary" id="btn-save-diario">Salvar registro do dia</button>
+    <button class="btn danger" id="btn-del-diario" style="display:none;margin-left:8px;">Excluir este registro</button>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Últimos registros</h3>
+      <div id="d-lista"></div>
+    </div>
+  `;
+
+  ['d-humor-manha','d-humor-noite','d-ansiedade-manha','d-ansiedade-noite','d-thc-alivio','d-cbd-alivio'].forEach(id=>{
+    const input = document.getElementById(id);
+    input.addEventListener('input', ()=>document.getElementById(id+'-out').textContent = input.value);
+  });
+
+  const dateInput = document.getElementById('d-data');
+  dateInput.addEventListener('change', ()=>loadDiarioIntoForm(dateInput.value));
+
+  document.getElementById('btn-save-diario').addEventListener('click', saveDiarioForm);
+  document.getElementById('btn-del-diario').addEventListener('click', deleteDiarioForm);
+
+  loadDiarioIntoForm(dateInput.value);
+  renderDiarioLista();
+}
+
+function loadDiarioIntoForm(date){
+  const e = STATE.diario[date];
+  document.getElementById('d-thc-dose').value = e ? (e.thcDose ?? '') : '';
+  document.getElementById('d-thc-unidade').value = e ? (e.thcUnidade || 'gotas') : 'gotas';
+  document.getElementById('d-thc-horario').value = e ? (e.thcHorario || '') : '';
+  document.getElementById('d-thc-motivo').value = e ? (e.thcMotivo || '') : '';
+  const thcAlivio = e ? (e.thcAlivio ?? 0) : 0;
+  document.getElementById('d-thc-alivio').value = thcAlivio;
+  document.getElementById('d-thc-alivio-out').textContent = thcAlivio;
+
+  document.getElementById('d-cbd-dose').value = e ? (e.cbdDose ?? '') : '';
+  document.getElementById('d-cbd-unidade').value = e ? (e.cbdUnidade || 'gotas') : 'gotas';
+  document.getElementById('d-cbd-horario').value = e ? (e.cbdHorario || '') : '';
+  document.getElementById('d-cbd-motivo').value = e ? (e.cbdMotivo || '') : '';
+  const cbdAlivio = e ? (e.cbdAlivio ?? 0) : 0;
+  document.getElementById('d-cbd-alivio').value = cbdAlivio;
+  document.getElementById('d-cbd-alivio-out').textContent = cbdAlivio;
+
+  document.getElementById('d-antidep-tomou').checked = e ? !!e.antidepTomou : false;
+  if(e){
+    document.getElementById('d-antidep-dose').value = e.antidepDose || '';
+    document.getElementById('d-antidep-horario').value = e.antidepHorario || '';
+  }
+  document.getElementById('d-sono-horas').value = e ? (e.sonoHoras ?? '') : '';
+  document.getElementById('d-sono-qualidade').value = e ? (e.sonoQualidade || '') : '';
+
+  const hm = e ? (e.humorManha ?? e.humor ?? 5) : 5;
+  const hn = e ? (e.humorNoite ?? e.humor ?? 5) : 5;
+  const am = e ? (e.ansiedadeManha ?? e.ansiedade ?? 5) : 5;
+  const an = e ? (e.ansiedadeNoite ?? e.ansiedade ?? 5) : 5;
+  document.getElementById('d-humor-manha').value = hm; document.getElementById('d-humor-manha-out').textContent = hm;
+  document.getElementById('d-humor-noite').value = hn; document.getElementById('d-humor-noite-out').textContent = hn;
+  document.getElementById('d-ansiedade-manha').value = am; document.getElementById('d-ansiedade-manha-out').textContent = am;
+  document.getElementById('d-ansiedade-noite').value = an; document.getElementById('d-ansiedade-noite-out').textContent = an;
+
+  document.querySelectorAll('#d-efeitos select').forEach(sel=>{
+    const nome = sel.dataset.efeito;
+    const registro = e && e.efeitos ? e.efeitos.find(f=>f.nome===nome) : null;
+    sel.value = registro ? registro.intensidade : 0;
+  });
+
+  document.getElementById('d-alcool').checked = e ? !!e.alcool : false;
+  document.getElementById('d-alcool-qtd').value = e ? (e.alcoolQtd || '') : '';
+  document.getElementById('d-cafeina').value = e ? (e.cafeina ?? '') : '';
+  document.getElementById('d-outras-substancias').value = e ? (e.outrasSubstancias || '') : '';
+
+  document.getElementById('d-notas').value = e ? (e.notas || '') : '';
+  document.getElementById('btn-del-diario').style.display = e ? 'inline-block' : 'none';
+}
+
+async function saveDiarioForm(){
+  const date = document.getElementById('d-data').value;
+  if(!date){ toast('Escolha uma data.'); return; }
+  const efeitos = Array.from(document.querySelectorAll('#d-efeitos select'))
+    .map(sel=>({nome:sel.dataset.efeito, intensidade:Number(sel.value)}))
+    .filter(f=>f.intensidade > 0);
+  const entry = {
+    thcDose: document.getElementById('d-thc-dose').value ? Number(document.getElementById('d-thc-dose').value) : null,
+    thcUnidade: document.getElementById('d-thc-unidade').value,
+    thcHorario: document.getElementById('d-thc-horario').value,
+    thcMotivo: document.getElementById('d-thc-motivo').value,
+    thcAlivio: Number(document.getElementById('d-thc-alivio').value),
+    cbdDose: document.getElementById('d-cbd-dose').value ? Number(document.getElementById('d-cbd-dose').value) : null,
+    cbdUnidade: document.getElementById('d-cbd-unidade').value,
+    cbdHorario: document.getElementById('d-cbd-horario').value,
+    cbdMotivo: document.getElementById('d-cbd-motivo').value,
+    cbdAlivio: Number(document.getElementById('d-cbd-alivio').value),
+    antidepTomou: document.getElementById('d-antidep-tomou').checked,
+    antidepDose: document.getElementById('d-antidep-dose').value,
+    antidepHorario: document.getElementById('d-antidep-horario').value,
+    sonoHoras: document.getElementById('d-sono-horas').value ? Number(document.getElementById('d-sono-horas').value) : null,
+    sonoQualidade: document.getElementById('d-sono-qualidade').value,
+    humorManha: Number(document.getElementById('d-humor-manha').value),
+    humorNoite: Number(document.getElementById('d-humor-noite').value),
+    ansiedadeManha: Number(document.getElementById('d-ansiedade-manha').value),
+    ansiedadeNoite: Number(document.getElementById('d-ansiedade-noite').value),
+    efeitos: efeitos,
+    alcool: document.getElementById('d-alcool').checked,
+    alcoolQtd: document.getElementById('d-alcool-qtd').value.trim(),
+    cafeina: document.getElementById('d-cafeina').value ? Number(document.getElementById('d-cafeina').value) : null,
+    outrasSubstancias: document.getElementById('d-outras-substancias').value.trim(),
+    notas: document.getElementById('d-notas').value.trim()
+  };
+  STATE.diario[date] = entry;
+  const ok = await saveJSON('diario-entries', STATE.diario);
+  toast(ok ? 'Registro salvo' : 'Não foi possível salvar. Tente novamente.');
+  document.getElementById('btn-del-diario').style.display = 'inline-block';
+  renderDiarioLista();
+}
+
+async function deleteDiarioForm(){
+  const date = document.getElementById('d-data').value;
+  if(!STATE.diario[date]) return;
+  delete STATE.diario[date];
+  await saveJSON('diario-entries', STATE.diario);
+  toast('Registro excluído');
+  loadDiarioIntoForm(date);
+  renderDiarioLista();
+}
+
+function renderDiarioLista(){
+  const dates = Object.keys(STATE.diario).sort().reverse().slice(0,14);
+  const wrap = document.getElementById('d-lista');
+  if(!dates.length){ wrap.innerHTML = '<div class="empty">Nenhum registro ainda. Comece preenchendo o formulário acima.</div>'; return; }
+  wrap.innerHTML = dates.map(date=>{
+    const e = STATE.diario[date];
+    const tags = [];
+    if(e.thcDose) tags.push(`<span class="badge thc">THC ${e.thcDose}${e.thcUnidade}</span>`);
+    if(e.cbdDose) tags.push(`<span class="badge cbd">CBD ${e.cbdDose}${e.cbdUnidade}</span>`);
+    if(e.antidepTomou) tags.push(`<span class="badge antidep">antidep. ✓</span>`);
+    if(e.alcool) tags.push(`<span class="badge" style="background:var(--surface-2);color:var(--ink-soft);">álcool</span>`);
+    const h = getHumor(e), a = getAnsiedade(e);
+    return `<div class="entry-row" style="cursor:pointer;" data-view="${date}">
+      <span class="date">${fmtDate(date)}</span>
+      <span class="tags">${tags.join('')} <span style="color:var(--ink-faint);">humor ${h ?? '—'} · ansiedade ${a ?? '—'}</span></span>
+      <span class="actions"><button data-edit="${date}">editar</button></span>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.entry-row').forEach(row=>{
+    row.addEventListener('click', ()=>openDiarioEntryModal(row.dataset.view));
+  });
+  wrap.querySelectorAll('button[data-edit]').forEach(b=>{
+    b.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      document.getElementById('d-data').value = b.dataset.edit;
+      loadDiarioIntoForm(b.dataset.edit);
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+  });
+}
+
+function openDiarioEntryModal(date){
+  const e = STATE.diario[date];
+  if(!e) return;
+  const root = document.getElementById('modal-root');
+  const row = (label, value) => (value===null||value===undefined||value==='') ? '' :
+    `<div style="margin-bottom:12px;"><div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:2px;">${label}</div><div style="font-size:14px;color:var(--ink);white-space:pre-wrap;">${escapeHtml(value)}</div></div>`;
+
+  const efeitosTxt = (e.efeitos && e.efeitos.length)
+    ? e.efeitos.map(f=>`${f.nome} (${INTENSIDADE_OPTS[f.intensidade]})`).join(', ')
+    : '';
+
+  const rows = [
+    row('THC — dose', e.thcDose ? `${e.thcDose} ${e.thcUnidade}${e.thcHorario?' às '+e.thcHorario:''}` : ''),
+    row('THC — motivo do uso', e.thcMotivo),
+    row('THC — alívio percebido', (e.thcAlivio!=null && e.thcDose) ? e.thcAlivio+'/10' : ''),
+    row('CBD — dose', e.cbdDose ? `${e.cbdDose} ${e.cbdUnidade}${e.cbdHorario?' às '+e.cbdHorario:''}` : ''),
+    row('CBD — motivo do uso', e.cbdMotivo),
+    row('CBD — alívio percebido', (e.cbdAlivio!=null && e.cbdDose) ? e.cbdAlivio+'/10' : ''),
+    row('Antidepressivo', e.antidepTomou ? `Tomado${e.antidepDose?' — '+e.antidepDose:''}${e.antidepHorario?' às '+e.antidepHorario:''}` : 'Não tomado'),
+    row('Sono', e.sonoHoras!=null ? `${e.sonoHoras}h${e.sonoQualidade?' · qualidade '+e.sonoQualidade+'/5':''}` : ''),
+    row('Humor', `manhã ${e.humorManha ?? e.humor ?? '—'} · noite ${e.humorNoite ?? e.humor ?? '—'}`),
+    row('Ansiedade', `manhã ${e.ansiedadeManha ?? e.ansiedade ?? '—'} · noite ${e.ansiedadeNoite ?? e.ansiedade ?? '—'}`),
+    row('Efeitos colaterais', efeitosTxt),
+    row('Álcool', e.alcool ? ('Sim' + (e.alcoolQtd?' — '+e.alcoolQtd:'')) : ''),
+    row('Cafeína', e.cafeina!=null ? e.cafeina+' dose(s)' : ''),
+    row('Outras substâncias', e.outrasSubstancias),
+    row('Notas', e.notas)
+  ].join('');
+
+  root.innerHTML = `
+    <div class="modal-overlay" id="diario-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="diario-close" aria-label="Fechar">✕</button>
+        <h3>Diário — ${fmtDate(date)}</h3>
+        <p style="font-size:13px;color:var(--ink-soft);margin:0 0 16px;">Detalhes do registro deste dia.</p>
+        ${rows || '<p class="note">Nenhum campo preenchido neste registro.</p>'}
+      </div>
+    </div>
+  `;
+  document.getElementById('diario-close').addEventListener('click', closeModal);
+  document.getElementById('diario-overlay').addEventListener('click', (ev)=>{ if(ev.target.id==='diario-overlay') closeModal(); });
+}
+const FREQ_OPTS = ['Nenhuma vez','Vários dias','Mais da metade dos dias','Quase todos os dias'];
+const WHO5_OPTS = ['Nunca','De vez em quando','Menos da metade do tempo','Mais da metade do tempo','Maior parte do tempo','O tempo todo'];
+const ISI_OPTS = ['Nenhum(a)','Leve','Moderado(a)','Grave','Muito grave'];
+const FREQ5_OPTS = ['Nunca','Raramente','Às vezes','Frequentemente','Sempre'];
+const HIST_OPTS = ['Nunca','Sim, há mais de um ano','Sim, no último ano','Mais de uma vez, há mais de um ano','Mais de uma vez, no último ano'];
+const FIBSER_FREQ_OPTS = ['0 · nenhum(a)','1','2','3','4','5','6 · constante'];
+const FIBSER_INT_OPTS = ['0 · nenhuma','1','2','3','4','5','6 · intolerável'];
+const FIBSER_IMP_OPTS = ['0 · nenhum prejuízo','1','2','3','4','5','6 · prejuízo extremo'];
+
+const TEST_DEFS = {
+  phq9: {
+    label: 'PHQ-9',
+    desc: 'Rastreia sintomas de depressão nas últimas duas semanas — humor, energia, sono, apetite e concentração.',
+    instructions: 'Nas últimas 2 semanas, com que frequência você foi incomodado(a) pelos problemas abaixo?',
+    items: [
+      'Pouco interesse ou prazer em fazer as coisas',
+      'Sentir-se para baixo, deprimido(a) ou sem perspectiva',
+      'Dificuldade para pegar no sono, manter o sono ou dormir demais',
+      'Sentir-se cansado(a) ou com pouca energia',
+      'Falta de apetite ou comer demais',
+      'Sentir-se mal consigo mesmo(a) — ou que é um fracasso, ou que decepcionou sua família ou a si mesmo(a)',
+      'Dificuldade para se concentrar, como ler ou assistir TV',
+      'Lentidão para se movimentar ou falar (perceptível para outros), ou o oposto — agitação',
+      'Pensamentos de que seria melhor estar morto(a) ou de se machucar de alguma forma'
+    ].map(q=>({q, options:FREQ_OPTS})),
+    direction:'higher_worse',
+    band(score){
+      if(score<=4) return {label:'Mínimo', cls:'sev-0'};
+      if(score<=9) return {label:'Leve', cls:'sev-1'};
+      if(score<=14) return {label:'Moderado', cls:'sev-2'};
+      if(score<=19) return {label:'Moderadamente grave', cls:'sev-3'};
+      return {label:'Grave', cls:'sev-4'};
+    },
+    alertItemIndex: 8
+  },
+  gad7: {
+    label: 'GAD-7',
+    desc: 'Rastreia sintomas de ansiedade generalizada nas últimas duas semanas.',
+    instructions: 'Nas últimas 2 semanas, com que frequência você foi incomodado(a) pelos problemas abaixo?',
+    items: [
+      'Sentir-se nervoso(a), ansioso(a) ou muito tenso(a)',
+      'Não ser capaz de impedir ou controlar as preocupações',
+      'Preocupar-se demais com diversas coisas',
+      'Dificuldade para relaxar',
+      'Ficar tão agitado(a) que se torna difícil permanecer parado(a)',
+      'Ficar facilmente irritado(a) ou irritável',
+      'Sentir medo como se algo terrível fosse acontecer'
+    ].map(q=>({q, options:FREQ_OPTS})),
+    direction:'higher_worse',
+    band(score){
+      if(score<=4) return {label:'Mínimo', cls:'sev-0'};
+      if(score<=9) return {label:'Leve', cls:'sev-1'};
+      if(score<=14) return {label:'Moderado', cls:'sev-3'};
+      return {label:'Grave', cls:'sev-4'};
+    }
+  },
+  who5: {
+    label: 'WHO-5',
+    desc: 'Mede seu bem-estar geral nas últimas duas semanas — complementa o PHQ-9 e o GAD-7 com uma visão mais ampla de como você tem se sentido.',
+    instructions: 'Nas últimas 2 semanas, com que frequência cada afirmação foi verdadeira para você?',
+    items: [
+      'Tenho me sentido alegre e de bom humor',
+      'Tenho me sentido calmo(a) e tranquilo(a)',
+      'Tenho me sentido ativo(a) e cheio(a) de vigor',
+      'Tenho acordado me sentindo descansado(a)',
+      'Meu dia a dia tem sido cheio de coisas que me interessam'
+    ].map(q=>({q, options:WHO5_OPTS})),
+    direction:'higher_better',
+    transformScore: raw => raw*4,
+    scoreSuffix: '%',
+    band(score){
+      if(score<=28) return {label:'Bem-estar muito baixo', cls:'sev-4'};
+      if(score<=50) return {label:'Bem-estar reduzido', cls:'sev-3'};
+      if(score<=75) return {label:'Bem-estar moderado', cls:'sev-1'};
+      return {label:'Bem-estar bom', cls:'sev-0'};
+    },
+    note: 'Pontuação ≤ 50% costuma indicar necessidade de conversar com um profissional sobre o humor.'
+  },
+  isi: {
+    label: 'ISI',
+    desc: 'Avalia a gravidade da insônia e o quanto ela afeta seu funcionamento no dia a dia.',
+    instructions: 'Considerando as últimas 2 semanas, avalie cada item sobre o seu sono.',
+    items: [
+      'Dificuldade para pegar no sono',
+      'Dificuldade para manter o sono durante a noite',
+      'Problema de acordar mais cedo do que gostaria',
+      'Insatisfação com o seu padrão de sono atual',
+      'Quanto o problema de sono interfere no seu funcionamento diário (energia, concentração, humor)',
+      'Quão perceptível você acha que o problema de sono é para as pessoas ao seu redor',
+      'Quão preocupado(a) ou aflito(a) você está com o seu problema de sono'
+    ].map(q=>({q, options:ISI_OPTS})),
+    direction:'higher_worse',
+    band(score){
+      if(score<=7) return {label:'Sem insônia clínica', cls:'sev-0'};
+      if(score<=14) return {label:'Insônia subclínica (leve)', cls:'sev-1'};
+      if(score<=21) return {label:'Insônia moderada', cls:'sev-3'};
+      return {label:'Insônia grave', cls:'sev-4'};
+    }
+  },
+  cuditr: {
+    label: 'CUDIT-R',
+    desc: 'Rastreia o padrão de uso do óleo de THC ao longo do tempo, sinalizando se está caminhando para um uso de risco.',
+    instructions: 'Considerando os últimos meses de uso do óleo de THC, responda cada item. Adaptação do CUDIT-R — as faixas abaixo são aproximadas.',
+    items: [
+      {q:'Com que frequência você usa o óleo de THC?', options:['Nunca ou só o prescrito ocasionalmente','Mensalmente ou menos','2 a 4 vezes por mês','2 a 3 vezes por semana','4 ou mais vezes por semana']},
+      {q:'Quantas horas, em um dia típico de uso, você passa sentindo efeito do THC?', options:['Nenhuma ou menos de 1 hora','1 a 2 horas','3 a 4 horas','5 a 6 horas','7 horas ou mais']},
+      {q:'Com que frequência você sentiu dificuldade em pensar em outra coisa quando não estava sob efeito nem planejando usar?', options:FREQ5_OPTS},
+      {q:'Com que frequência você usou em situações com algum risco (dirigir, cuidar de alguém, operar máquinas)?', options:FREQ5_OPTS},
+      {q:'Com que frequência você notou problemas de memória ou concentração depois de usar?', options:FREQ5_OPTS},
+      {q:'Algum familiar, amigo ou profissional de saúde já sugeriu que você reduzisse o uso?', options:HIST_OPTS},
+      {q:'Você já tentou reduzir ou parar de usar sem conseguir?', options:HIST_OPTS},
+      {q:'O uso já causou algum problema para você (saúde, humor, trabalho, estudos, relacionamentos, finanças)?', options:HIST_OPTS}
+    ],
+    direction:'higher_worse',
+    band(score){
+      if(score<=7) return {label:'Baixo risco', cls:'sev-0'};
+      if(score<=11) return {label:'Uso de atenção', cls:'sev-2'};
+      return {label:'Possível uso problemático', cls:'sev-4'};
+    },
+    note: 'Instrumento de rastreio adaptado — não confirma dependência, apenas sinaliza quando vale conversar com um profissional sobre o padrão de uso.'
+  },
+  fibser: {
+    label: 'FIBSER',
+    desc: 'Mede a frequência, a intensidade e o prejuízo causados pelos efeitos colaterais do seu antidepressivo.',
+    instructions: 'Sobre os efeitos colaterais do seu antidepressivo nos últimos dias:',
+    items: [
+      {q:'Frequência dos efeitos colaterais', options:FIBSER_FREQ_OPTS},
+      {q:'Intensidade dos efeitos colaterais quando ocorrem', options:FIBSER_INT_OPTS},
+      {q:'Quanto os efeitos colaterais atrapalharam seu funcionamento no dia a dia', options:FIBSER_IMP_OPTS}
+    ],
+    direction:'higher_worse',
+    band(score){
+      if(score<=3) return {label:'Mínimo', cls:'sev-0'};
+      if(score<=8) return {label:'Leve', cls:'sev-1'};
+      if(score<=13) return {label:'Moderado', cls:'sev-2'};
+      return {label:'Significativo — vale falar com o prescritor', cls:'sev-4'};
+    }
+  }
+};
+const TEST_ORDER = ['phq9','gad7','who5','isi','cuditr','fibser'];
+const TEST_INTERVALS = { phq9:14, gad7:14, who5:7, isi:14, cuditr:30, fibser:14 };
+
+let currentTest = null;
+const testAnswers = {};
+
+function renderTestes(){
+  const el = document.getElementById('view-testes');
+  el.innerHTML = `
+    <h2 class="section-title">Autotestes</h2>
+    <p class="section-desc">Rastreios validados para autoaplicação repetida. Aplique periodicamente — são instrumentos de rastreio, não diagnóstico.</p>
+    <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+      ${TEST_ORDER.map(id=>`<button class="btn" id="btn-tab-${id}">${TEST_DEFS[id].label}</button>`).join('')}
+    </div>
+    <div id="teste-conteudo"></div>
+    <div class="card">
+      <h3>Histórico</h3>
+      <div id="teste-historico"></div>
+    </div>
+  `;
+  TEST_ORDER.forEach(id=>{
+    document.getElementById('btn-tab-'+id).addEventListener('click', ()=>{ currentTest=id; renderTestForm(); });
+  });
+  if(!currentTest) currentTest = 'phq9';
+  renderTestForm();
+  renderTestHistorico();
+}
+
+function renderTestForm(){
+  TEST_ORDER.forEach(id=>{
+    document.getElementById('btn-tab-'+id).classList.toggle('primary', currentTest===id);
+  });
+  const test = TEST_DEFS[currentTest];
+  Object.keys(testAnswers).forEach(k=>delete testAnswers[k]);
+  const conteudo = document.getElementById('teste-conteudo');
+  conteudo.innerHTML = `
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 16px;">${test.desc}</p>
+    <div class="card">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">${test.instructions}</p>
+      ${test.items.map((it,i)=>`
+        <div class="question-block">
+          <p class="q">${i+1}. ${it.q}</p>
+          <div class="opts" data-q="${i}">
+            ${it.options.map((o,v)=>`<div class="opt" data-val="${v}">${o}</div>`).join('')}
+          </div>
+        </div>
+      `).join('')}
+      <button class="btn primary" id="btn-submit-teste" style="margin-top:12px;">Calcular e salvar</button>
+      <div id="teste-resultado"></div>
+    </div>
+  `;
+  conteudo.querySelectorAll('.opts').forEach(group=>{
+    group.addEventListener('click', (e)=>{
+      const opt = e.target.closest('.opt');
+      if(!opt) return;
+      testAnswers[group.dataset.q] = Number(opt.dataset.val);
+      group.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));
+      opt.classList.add('sel');
+    });
+  });
+  document.getElementById('btn-submit-teste').addEventListener('click', submitTeste);
+}
+
+function severityBand(testId, score){
+  return TEST_DEFS[testId].band(score);
+}
+
+async function submitTeste(){
+  const test = TEST_DEFS[currentTest];
+  if(Object.keys(testAnswers).length < test.items.length){
+    toast('Responda todas as perguntas antes de calcular.');
+    return;
+  }
+  const raw = Object.values(testAnswers).reduce((a,b)=>a+b,0);
+  const score = test.transformScore ? test.transformScore(raw) : raw;
+  const band = test.band(score);
+  const record = { date: todayISO(), score, answers: {...testAnswers} };
+  STATE[currentTest].push(record);
+  await saveJSON(currentTest+'-history', STATE[currentTest]);
+  await markNotificationsDone(currentTest);
+  updateNotifBadge();
+
+  let alerta = '';
+  if(test.alertItemIndex != null && testAnswers[test.alertItemIndex] > 0){
+    alerta = `
+      <div class="crisis-box">
+        <b>Sua resposta a uma das perguntas merece atenção agora.</b>
+        Isso não precisa ser enfrentado sozinho(a). Ligue para o CVV — 188 (gratuito, 24h) ou acesse cvv.org.br para conversar com alguém agora.
+        Também vale contar isso ao seu psiquiatra ou psicólogo o quanto antes.
+      </div>`;
+  }
+
+  const maxScore = test.transformScore ? 100 : test.items.reduce((sum,it)=>sum + (it.options.length-1), 0);
+  document.getElementById('teste-resultado').innerHTML = `
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <p style="font-size:14px;margin:0 0 6px;">Pontuação: <b class="num-mono">${round1(score)}${test.scoreSuffix||''}</b>${test.scoreSuffix?'':' / '+maxScore} — <span class="severity ${band.cls}">${band.label}</span></p>
+      ${test.note ? `<p class="note">${test.note}</p>` : ''}
+      <p class="note">Este resultado foi salvo no histórico. Instrumento de rastreio — a interpretação clínica cabe ao seu profissional de saúde.</p>
+      ${alerta}
+    </div>
+  `;
+  renderTestHistorico();
+}
+
+let testHistoryRows = [];
+function renderTestHistorico(){
+  const wrap = document.getElementById('teste-historico');
+  const rows = TEST_ORDER.flatMap(id => STATE[id].map(r=>({...r, tipo:id})))
+    .sort((a,b)=>a.date<b.date?1:-1).slice(0,30);
+  testHistoryRows = rows;
+  if(!rows.length){ wrap.innerHTML = '<div class="empty">Nenhum teste aplicado ainda.</div>'; return; }
+  wrap.innerHTML = `
+    <div class="table-scroll">
+    <table class="hist">
+      <thead><tr><th>Data</th><th>Teste</th><th>Pontuação</th><th>Faixa</th></tr></thead>
+      <tbody>
+        ${rows.map((r,i)=>{
+          const test = TEST_DEFS[r.tipo];
+          const band = test.band(r.score);
+          return `<tr style="cursor:pointer;" data-idx="${i}"><td>${fmtDate(r.date)}</td><td>${test.label}</td><td class="num-mono">${round1(r.score)}${test.scoreSuffix||''}</td><td><span class="severity ${band.cls}">${band.label}</span></td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  `;
+  wrap.querySelectorAll('tr[data-idx]').forEach(tr=>{
+    tr.addEventListener('click', ()=>openTestResultModal(testHistoryRows[Number(tr.dataset.idx)]));
+  });
+}
+
+function openTestResultModal(record){
+  if(!record) return;
+  const test = TEST_DEFS[record.tipo];
+  const band = test.band(record.score);
+  const root = document.getElementById('modal-root');
+  const qRows = test.items.map((it,i)=>{
+    const ansIdx = record.answers ? record.answers[i] : undefined;
+    const ansTxt = (ansIdx!==undefined && it.options[ansIdx]!==undefined) ? it.options[ansIdx] : '—';
+    return `<div style="margin-bottom:12px;">
+      <div style="font-size:13px;color:var(--ink);margin-bottom:2px;">${i+1}. ${it.q}</div>
+      <div style="font-size:13px;color:var(--action);font-weight:500;">${escapeHtml(ansTxt)}</div>
+    </div>`;
+  }).join('');
+
+  root.innerHTML = `
+    <div class="modal-overlay" id="test-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="test-close" aria-label="Fechar">✕</button>
+        <h3>${test.label} — ${fmtDate(record.date)}</h3>
+        <p style="font-size:14px;margin:0 0 16px;">Pontuação: <b class="num-mono">${round1(record.score)}${test.scoreSuffix||''}</b> — <span class="severity ${band.cls}">${band.label}</span></p>
+        ${qRows}
+      </div>
+    </div>
+  `;
+  document.getElementById('test-close').addEventListener('click', closeModal);
+  document.getElementById('test-overlay').addEventListener('click', (ev)=>{ if(ev.target.id==='test-overlay') closeModal(); });
+}
+
+/* ============================================================
+   NOTIFICAÇÕES — lembretes de reaplicação dos autotestes
+   ============================================================ */
+function daysBetween(isoStart, isoEnd){
+  const d1 = new Date(isoStart+'T00:00:00');
+  const d2 = new Date(isoEnd+'T00:00:00');
+  return Math.round((d2-d1)/86400000);
+}
+
+function lastDateFor(testId){
+  const arr = STATE[testId];
+  if(!arr || !arr.length) return null;
+  return arr.map(r=>r.date).sort().slice(-1)[0];
+}
+
+async function refreshNotifications(){
+  let changed = false;
+  TEST_ORDER.forEach(testId=>{
+    const last = lastDateFor(testId);
+    if(!last) return;
+    const dias = daysBetween(last, todayISO());
+    const interval = TEST_INTERVALS[testId];
+    const hasActive = STATE.notifications.some(n=>n.testId===testId && n.status!=='done');
+    if(dias >= interval && !hasActive){
+      STATE.notifications.push({
+        id: testId+'_'+todayISO()+'_'+Math.random().toString(36).slice(2,7),
+        testId,
+        generatedDate: todayISO(),
+        lastAppliedDate: last,
+        status: 'unread',
+        completedDate: null
+      });
+      changed = true;
+    }
+  });
+  if(changed) await saveJSON('notifications', STATE.notifications);
+  return STATE.notifications.filter(n=>n.status==='unread');
+}
+
+async function markNotificationsDone(testId){
+  let changed = false;
+  STATE.notifications.forEach(n=>{
+    if(n.testId===testId && n.status!=='done'){
+      n.status='done';
+      n.completedDate = todayISO();
+      changed = true;
+    }
+  });
+  if(changed) await saveJSON('notifications', STATE.notifications);
+}
+
+function updateNotifBadge(){
+  const badge = document.getElementById('notif-badge');
+  if(!badge) return;
+  const count = STATE.notifications.filter(n=>n.status==='unread').length;
+  badge.textContent = count;
+  badge.classList.toggle('hidden', count===0);
+}
+
+function closeModal(){
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+async function showDuePopup(unreadList){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="due-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="due-close" aria-label="Fechar">✕</button>
+        <h3>Hora de reaplicar</h3>
+        <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 16px;">Estes autotestes já passaram do intervalo recomendado desde a última aplicação.</p>
+        ${unreadList.map(n=>{
+          const test = TEST_DEFS[n.testId];
+          const dias = daysBetween(n.lastAppliedDate, todayISO());
+          return `
+            <div class="notif-item">
+              <div class="row">
+                <div>
+                  <div class="testname">${test.label}</div>
+                  <div class="meta">última aplicação há ${dias} dia(s) · ${fmtDate(n.lastAppliedDate)}</div>
+                </div>
+                <button class="btn primary" data-goto="${n.testId}" style="font-size:12.5px;padding:7px 14px;">Aplicar agora</button>
+              </div>
+            </div>`;
+        }).join('')}
+        <button class="btn" id="due-dismiss" style="margin-top:6px;width:100%;">Fechar</button>
+      </div>
+    </div>
+  `;
+  const dismiss = async ()=>{
+    unreadList.forEach(n=>{ if(n.status==='unread') n.status='read'; });
+    await saveJSON('notifications', STATE.notifications);
+    updateNotifBadge();
+    closeModal();
+  };
+  document.getElementById('due-close').addEventListener('click', dismiss);
+  document.getElementById('due-dismiss').addEventListener('click', dismiss);
+  document.getElementById('due-overlay').addEventListener('click', (e)=>{ if(e.target.id==='due-overlay') dismiss(); });
+  root.querySelectorAll('button[data-goto]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const testId = b.dataset.goto;
+      unreadList.forEach(n=>{ if(n.status==='unread') n.status='read'; });
+      await saveJSON('notifications', STATE.notifications);
+      updateNotifBadge();
+      closeModal();
+      switchToView('testes');
+      currentTest = testId;
+      renderTestForm();
+    });
+  });
+}
+
+let notifFilter = 'all';
+function openHistoryModal(){
+  renderHistoryModal();
+}
+
+function renderHistoryModal(){
+  const root = document.getElementById('modal-root');
+  const all = [...STATE.notifications].sort((a,b)=>a.generatedDate<b.generatedDate?1:-1);
+  const filtered = notifFilter==='all' ? all : all.filter(n=>n.status===notifFilter);
+  const statusLabel = {unread:'Não lida', read:'Lida', done:'Concluída'};
+  root.innerHTML = `
+    <div class="modal-overlay" id="history-overlay">
+      <div class="modal-box">
+        <button class="modal-close" id="history-close" aria-label="Fechar">✕</button>
+        <h3>Notificações</h3>
+        <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 16px;">Lembretes de reaplicação dos autotestes, gerados quando o intervalo recomendado é ultrapassado.</p>
+        <div class="notif-filters">
+          <button data-f="all" class="${notifFilter==='all'?'active':''}">Todas</button>
+          <button data-f="unread" class="${notifFilter==='unread'?'active':''}">Não lidas</button>
+          <button data-f="read" class="${notifFilter==='read'?'active':''}">Lidas</button>
+          <button data-f="done" class="${notifFilter==='done'?'active':''}">Concluídas</button>
+        </div>
+        ${filtered.length ? filtered.map(n=>{
+          const test = TEST_DEFS[n.testId];
+          return `
+            <div class="notif-item">
+              <div class="row">
+                <div>
+                  <div class="testname">${test.label}</div>
+                  <div class="meta">gerada em ${fmtDate(n.generatedDate)}${n.completedDate ? ' · concluída em '+fmtDate(n.completedDate) : ''}</div>
+                </div>
+                <span class="notif-status ${n.status}">${statusLabel[n.status]}</span>
+              </div>
+            </div>`;
+        }).join('') : '<div class="empty">Nenhuma notificação nesta categoria.</div>'}
+      </div>
+    </div>
+  `;
+  document.getElementById('history-close').addEventListener('click', closeModal);
+  document.getElementById('history-overlay').addEventListener('click', (e)=>{ if(e.target.id==='history-overlay') closeModal(); });
+  root.querySelectorAll('.notif-filters button').forEach(b=>{
+    b.addEventListener('click', ()=>{ notifFilter = b.dataset.f; renderHistoryModal(); });
+  });
+}
+
+document.getElementById('btn-notif').addEventListener('click', openHistoryModal);
+
+/* ============================================================
+   ANÁLISE
+   ============================================================ */
+let charts = {};
+
+
+function pearson(xs, ys){
+  const n = xs.length;
+  if(n < 5) return null;
+  const mx = xs.reduce((a,b)=>a+b,0)/n;
+  const my = ys.reduce((a,b)=>a+b,0)/n;
+  let num=0, dx2=0, dy2=0;
+  for(let i=0;i<n;i++){
+    const dx = xs[i]-mx, dy = ys[i]-my;
+    num += dx*dy; dx2 += dx*dx; dy2 += dy*dy;
+  }
+  if(dx2===0 || dy2===0) return null;
+  return num/Math.sqrt(dx2*dy2);
+}
+
+function corrLabel(r){
+  if(r===null) return 'dados insuficientes (mínimo 5 dias com ambos os valores)';
+  const abs = Math.abs(r);
+  let força = 'muito fraca';
+  if(abs>=0.7) força='forte'; else if(abs>=0.5) força='moderada'; else if(abs>=0.3) força='fraca';
+  const direção = r>=0 ? 'no mesmo sentido' : 'em sentidos opostos';
+  return `r = ${round1(r)} — associação ${força}, variando ${direção} (não implica causa)`;
+}
+
+function renderAnalise(){
+  const el = document.getElementById('view-analise');
+  const dates = Object.keys(STATE.diario).sort();
+  const n = dates.length;
+
+  if(n === 0){
+    el.innerHTML = `
+      <h2 class="section-title">Análise</h2>
+      <p class="section-desc">Assim que houver registros no diário, os gráficos e o relatório aparecem aqui.</p>
+      <div class="empty">Nenhum dado para analisar ainda. Comece pelo Diário.</div>
+    `;
+    return;
+  }
+
+  const humorArr = dates.map(d=>getHumor(STATE.diario[d]));
+  const ansArr = dates.map(d=>getAnsiedade(STATE.diario[d]));
+  const thcArr = dates.map(d=>STATE.diario[d].thcDose ?? 0);
+  const cbdArr = dates.map(d=>STATE.diario[d].cbdDose ?? 0);
+  const antidepTomouArr = dates.map(d=>STATE.diario[d].antidepTomou ? 1 : 0);
+
+  const humorMedio = round1(humorArr.reduce((a,b)=>a+b,0)/n);
+  const ansMedia = round1(ansArr.reduce((a,b)=>a+b,0)/n);
+  const adesao = Math.round(100*antidepTomouArr.reduce((a,b)=>a+b,0)/n);
+  const thcMedio = round1(thcArr.reduce((a,b)=>a+b,0)/n);
+  const cbdMedio = round1(cbdArr.reduce((a,b)=>a+b,0)/n);
+
+  el.innerHTML = `
+    <h2 class="section-title">Análise</h2>
+    <p class="section-desc">${n} dia(s) registrado(s) · de ${fmtDate(dates[0])} a ${fmtDate(dates[n-1])}</p>
+
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Humor médio (0–10)</div><div class="value">${humorMedio}</div></div>
+      <div class="stat"><div class="label">Ansiedade média (0–10)</div><div class="value">${ansMedia}</div></div>
+      <div class="stat"><div class="label">Adesão ao antidepressivo</div><div class="value">${adesao}%</div></div>
+      <div class="stat"><div class="label">THC / CBD médios</div><div class="value small">${thcMedio} / ${cbdMedio}</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Humor e ansiedade ao longo do tempo</h3>
+      <div class="legend-row">
+        <span><span class="dot" style="background:#3F6B4F;"></span>Humor</span>
+        <span><span class="dot" style="background:#7A5271;"></span>Ansiedade</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-humor" role="img" aria-label="Gráfico de linha mostrando humor e ansiedade autorreportados de 0 a 10 ao longo dos dias registrados"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Doses de óleo ao longo do tempo</h3>
+      <div class="legend-row">
+        <span><span class="dot" style="background:#B8843C;"></span>THC</span>
+        <span><span class="dot" style="background:#2E7385;"></span>CBD</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-oleos" role="img" aria-label="Gráfico de barras mostrando as doses diárias de óleo de THC e CBD"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Evolução dos autotestes</h3>
+      ${STATE.phq9.length || STATE.gad7.length ? `
+        <div class="legend-row">
+          <span><span class="dot" style="background:#B8843C;"></span>PHQ-9 (0–27)</span>
+          <span><span class="dot" style="background:#2E7385;"></span>GAD-7 (0–21)</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-testes" role="img" aria-label="Gráfico de linha mostrando a evolução das pontuações de PHQ-9 e GAD-7 ao longo do tempo"></canvas></div>
+      ` : '<div class="empty">Nenhum autoteste aplicado ainda — vá até a aba Testes.</div>'}
+    </div>
+
+    <div class="card">
+      <h3>Padrões descritivos</h3>
+      <p class="note" style="margin-bottom:10px;">Estas são apenas correlações estatísticas simples entre variáveis registradas — não indicam causa e efeito, e não substituem avaliação clínica.</p>
+      <div class="table-scroll">
+      <table class="hist">
+        <tbody>
+          <tr><td>THC × humor</td><td>${corrLabel(pearson(thcArr, humorArr))}</td></tr>
+          <tr><td>THC × ansiedade</td><td>${corrLabel(pearson(thcArr, ansArr))}</td></tr>
+          <tr><td>CBD × humor</td><td>${corrLabel(pearson(cbdArr, humorArr))}</td></tr>
+          <tr><td>CBD × ansiedade</td><td>${corrLabel(pearson(cbdArr, ansArr))}</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <button class="btn primary" id="btn-relatorio">Baixar relatório para consulta</button>
+  `;
+
+  drawChart('chart-humor', 'line', dates.map(fmtDate), [
+    {label:'Humor', data:humorArr, borderColor:'#3F6B4F', backgroundColor:'#3F6B4F', tension:0.3},
+    {label:'Ansiedade', data:ansArr, borderColor:'#7A5271', backgroundColor:'#7A5271', tension:0.3}
+  ], {min:0, max:10});
+
+  drawChart('chart-oleos', 'bar', dates.map(fmtDate), [
+    {label:'THC', data:thcArr, backgroundColor:'#B8843C'},
+    {label:'CBD', data:cbdArr, backgroundColor:'#2E7385'}
+  ]);
+
+  if(STATE.phq9.length || STATE.gad7.length){
+    const allTestDates = Array.from(new Set([...STATE.phq9.map(r=>r.date), ...STATE.gad7.map(r=>r.date)])).sort();
+    const phqMap = Object.fromEntries(STATE.phq9.map(r=>[r.date, r.score]));
+    const gadMap = Object.fromEntries(STATE.gad7.map(r=>[r.date, r.score]));
+    drawChart('chart-testes', 'line', allTestDates.map(fmtDate), [
+      {label:'PHQ-9', data:allTestDates.map(d=>phqMap[d] ?? null), borderColor:'#B8843C', backgroundColor:'#B8843C', spanGaps:true},
+      {label:'GAD-7', data:allTestDates.map(d=>gadMap[d] ?? null), borderColor:'#2E7385', backgroundColor:'#2E7385', spanGaps:true}
+    ]);
+  }
+
+  document.getElementById('btn-relatorio').addEventListener('click', ()=>gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr));
+}
+
+function drawChart(canvasId, type, labels, datasets, yRange){
+  if(charts[canvasId]) charts[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  charts[canvasId] = new Chart(ctx, {
+    type,
+    data: { labels, datasets: datasets.map(d=>({...d, borderWidth:2, pointRadius:2})) },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{ maxRotation:0, autoSkip:true, color:'#7C8878' }, grid:{display:false} },
+        y:{ min: yRange?yRange.min:undefined, max: yRange?yRange.max:undefined, ticks:{color:'#7C8878'}, grid:{color:'#E2E7D6'} }
+      }
+    }
+  });
+}
+
+function gerarRelatorio(dates, humorMedio, ansMedia, adesao, thcMedio, cbdMedio, thcArr, cbdArr, humorArr, ansArr){
+  const a = latestAnamnese();
+  const lastPhq = STATE.phq9.length ? STATE.phq9[STATE.phq9.length-1] : null;
+  const lastGad = STATE.gad7.length ? STATE.gad7[STATE.gad7.length-1] : null;
+  const linhas = [];
+  linhas.push('RELATÓRIO — RAIZ, DIÁRIO DE ACOMPANHAMENTO');
+  linhas.push('Gerado em: ' + fmtDate(todayISO()));
+  linhas.push('Período coberto: ' + fmtDate(dates[0]) + ' a ' + fmtDate(dates[dates.length-1]) + ' (' + dates.length + ' dia(s) registrado(s))');
+  linhas.push('');
+  linhas.push('--- DADOS DO TRATAMENTO ATUAL ---');
+  linhas.push('Diagnóstico informado: ' + (a.diagnostico || 'não informado'));
+  linhas.push('Antidepressivo: ' + (a.antidepNome || 'não informado') + ' — dose habitual: ' + (a.antidepDose || 'não informado'));
+  linhas.push('Óleo THC: ' + (a.thcInfo || 'não informado'));
+  linhas.push('Óleo CBD: ' + (a.cbdInfo || 'não informado'));
+  linhas.push('');
+  linhas.push('--- MÉDIAS DO PERÍODO ---');
+  linhas.push('Humor médio (0-10): ' + humorMedio);
+  linhas.push('Ansiedade média (0-10): ' + ansMedia);
+  linhas.push('Dose média de THC por dia de uso: ' + thcMedio);
+  linhas.push('Dose média de CBD por dia de uso: ' + cbdMedio);
+  linhas.push('Adesão registrada ao antidepressivo: ' + adesao + '% dos dias');
+  linhas.push('');
+  linhas.push('--- AUTOTESTES MAIS RECENTES ---');
+  linhas.push('PHQ-9: ' + (lastPhq ? lastPhq.score + ' pontos em ' + fmtDate(lastPhq.date) + ' (' + severityBand('phq9', lastPhq.score).label + ')' : 'nenhum aplicado'));
+  linhas.push('GAD-7: ' + (lastGad ? lastGad.score + ' pontos em ' + fmtDate(lastGad.date) + ' (' + severityBand('gad7', lastGad.score).label + ')' : 'nenhum aplicado'));
+  linhas.push('');
+  linhas.push('--- PADRÕES DESCRITIVOS (não causais) ---');
+  linhas.push('THC x humor: ' + corrLabel(pearson(thcArr, humorArr)));
+  linhas.push('THC x ansiedade: ' + corrLabel(pearson(thcArr, ansArr)));
+  linhas.push('CBD x humor: ' + corrLabel(pearson(cbdArr, humorArr)));
+  linhas.push('CBD x ansiedade: ' + corrLabel(pearson(cbdArr, ansArr)));
+  linhas.push('');
+  linhas.push('Este relatório foi gerado a partir de autorregistros e autotestes de rastreio.');
+  linhas.push('Não constitui diagnóstico nem recomendação de ajuste de dose — destina-se a apoiar a conversa com o profissional responsável pelo tratamento.');
+
+  const blob = new Blob([linhas.join('\n')], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'relatorio-raiz-' + todayISO() + '.txt';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  toast('Relatório baixado');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function init(){
+  const dataMap = await fetchAllAppData();
+  STATE.anamnese = dataMap['anamnese'] ?? null;
+  STATE.anamneseHistory = dataMap['anamnese-history'] ?? [];
+  STATE.diario = dataMap['diario-entries'] ?? {};
+  STATE.phq9 = dataMap['phq9-history'] ?? [];
+  STATE.gad7 = dataMap['gad7-history'] ?? [];
+  STATE.who5 = dataMap['who5-history'] ?? [];
+  STATE.isi = dataMap['isi-history'] ?? [];
+  STATE.cuditr = dataMap['cuditr-history'] ?? [];
+  STATE.fibser = dataMap['fibser-history'] ?? [];
+  STATE.notifications = dataMap['notifications'] ?? [];
+
+  renderInicio();
+  renderAnamnese();
+  renderDiario();
+  renderTestes();
+
+  const dueUnread = await refreshNotifications();
+  updateNotifBadge();
+  if(dueUnread.length) showDuePopup(dueUnread);
+}
+</script>
+</body>
+</html>
